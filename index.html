@@ -313,17 +313,17 @@ function wtier(w, lv){ const T = w==='kinetic'?KTIERS : w==='missiles'?MTIERS : 
 
 // Ships bought with XP — each grants a special system. (color = in-flight leader hue)
 const SHIPS = [
-  { id:'vanguard', name:'Vanguard', cost:0,    color:[222,238,255], startCount:10,
+  { id:'vanguard', name:'Vanguard', cost:0,    color:[80,227,194],  hull:[44,62,80],   accent:[74,144,226],  glow:[80,227,194],  startCount:10,
     sys:'Balanced strike craft. Reliable all-rounder.' },
-  { id:'striker',  name:'Striker',  cost:400,  color:[150,230,255], startCount:10, kinetic:2, fireMul:0.75,
+  { id:'striker',  name:'Striker',  cost:400,  color:[0,229,255],   hull:[27,38,59],   accent:[65,90,119],   glow:[0,229,255],   startCount:10, kinetic:2, fireMul:0.75,
     sys:'Overcharged cannons: 25% faster fire, starts Kinetic Lv2.' },
-  { id:'ironclad', name:'Ironclad', cost:500,  color:[180,205,150], startCount:14, armor:0.40,
+  { id:'ironclad', name:'Ironclad', cost:500,  color:[255,209,102], hull:[52,58,64],   accent:[88,129,87],   glow:[255,209,102], startCount:14, armor:0.40,
     sys:'Reinforced hull: takes 40% less combat damage, +4 legion.' },
-  { id:'warhead',  name:'Warhead',  cost:750,  color:[255,170,110], startCount:10, missiles:2,
+  { id:'warhead',  name:'Warhead',  cost:750,  color:[255,159,28],  hull:[43,45,66],   accent:[141,153,174], glow:[255,159,28],  startCount:10, missiles:2,
     sys:'Munitions bay: launches with Missiles Lv2 equipped.' },
-  { id:'prism',    name:'Prism',    cost:750,  color:[150,255,175], startCount:10, lasers:2, armor:0.15,
+  { id:'prism',    name:'Prism',    cost:750,  color:[0,245,212],   hull:[26,26,30],   accent:[46,196,182],  glow:[0,245,212],   startCount:10, lasers:2, armor:0.15,
     sys:'Beam array: launches with Lasers Lv2, light armor.' },
-  { id:'titan',    name:'Titan',    cost:1600, color:[210,180,255], startCount:18, armor:0.30, shield:3,
+  { id:'titan',    name:'Titan',    cost:1600, color:[224,170,255], hull:[60,9,108],   accent:[173,181,189], glow:[224,170,255], startCount:18, armor:0.30, shield:3,
     sys:'Flagship: huge legion, 30% armor, shield blocks 3 hits/sector.' }
 ];
 
@@ -389,6 +389,7 @@ let squad, bullets, enemies, gates, particles, floaters, stars, bossShots, missi
 let level, system, sector, distance, levelLen, score, best = 0, boss, shake, spawnTimer, gateTimer, fireTimer, missileTimer, laserTimer, missileNuke, tSpeed, flash;
 let weapons = { kinetic:1, missiles:0, lasers:0 };
 let shipArmor = 0, shield = 0, shieldMax = 0, shipColor = null, shipFireMul = 1, baseDmgMul = 1, baseXpMul = 1;
+let shipId = 'vanguard', shipHull = [44,62,80], shipAccent = [74,144,226], shipGlow = [80,227,194];
 try { best = parseInt(localStorage.getItem('sv_best')||'0',10)||0; } catch(e){}
 
 const SQUAD_Y = H - 130;          // where the squad rides
@@ -406,6 +407,7 @@ function reset(full){
   shipArmor = Math.min(0.85, (ship.armor || 0) + fx.armor);
   shieldMax = (ship.shield || 0) + fx.shield; shield = shieldMax;
   shipColor = ship.color; shipFireMul = (ship.fireMul || 1) * fx.fireMul;
+  shipId = ship.id; shipHull = ship.hull||ship.color; shipAccent = ship.accent||ship.color; shipGlow = ship.glow||[255,255,255];
   baseDmgMul = fx.dmgMul; baseXpMul = fx.xpMul;
   if(full){ level = 1; score = 0; weapons = { kinetic: ship.kinetic || 1, missiles: ship.missiles || 0, lasers: ship.lasers || 0 }; }
   system = Math.floor((level-1)/SECTORS_PER_SYSTEM) + 1;
@@ -962,19 +964,87 @@ function drawSquad(){
 }
 function drawFighter(x,y,lead,seed){
   ctx.save(); ctx.translate(x,y);
-  const s = lead ? 1.4 : 1;
-  const base = lead ? (shipColor || [222,238,255]) : [150,186,236];
-  // engine flame (flat flickering shard)
-  const fl = 5 + (Math.floor(seed*0.05)%3);
-  poly([[-2.6*s,5*s],[2.6*s,5*s],[0,5*s+fl]], lead?'#8fe6ff':'#5ab0ff');
-  // faceted swept-wing hull (flat shades = fake top light)
-  const N=[0,-12*s], A=[4.6*s,-1*s], B=[9*s,7*s], M=[0,5*s], A2=[-4.6*s,-1*s], B2=[-9*s,7*s];
-  poly([N,A2,B2,M], shade(base,0.6));    // left wing (shadow)
-  poly([N,A,B,M],   shade(base,0.95));   // right wing (lit)
-  poly([N,A,A2],    shade(base,1.18));   // nose facet (bright)
-  poly([[0,-4.5*s],[2*s,0],[-2*s,0]], lead?'#63d8ff':'#4a86e0'); // cockpit
-  if(lead) drawWeaponMounts(s);          // show equipped weapon tiers on the flagship
+  if(lead){
+    const s = 1.4;
+    drawLeaderPlume(s, seed);
+    drawLeaderHull(s);
+    drawWeaponMounts(s);                 // equipped weapon tiers overlaid on the flagship
+  } else {
+    // wingman — small generic fighter tinted to the selected ship
+    const b = shipAccent, fl = 5 + (Math.floor(seed*0.05)%3);
+    poly([[-2.6,5],[2.6,5],[0,5+fl]], rgb(shipGlow));
+    poly([[0,-12],[-4.6,-1],[-9,7],[0,5]], shade(b,0.6));
+    poly([[0,-12],[4.6,-1],[9,7],[0,5]], shade(b,0.95));
+    poly([[0,-12],[4.6,-1],[-4.6,-1]], shade(b,1.18));
+    poly([[0,-4.5],[2,0],[-2,0]], rgb(shipGlow));
+  }
   ctx.restore();
+}
+function drawLeaderPlume(s, seed){
+  const fl = 5 + (Math.floor(seed*0.05)%3), g = rgb(shipGlow);
+  if(shipId==='titan'){ for(const dx of [-4.5,0,4.5]) poly([[dx*s-2*s,8*s],[dx*s+2*s,8*s],[dx*s,8*s+fl+2]], g); }        // triple engine
+  else if(shipId==='striker'){ for(const dx of [-3,3]) poly([[dx*s-1.3*s,6*s],[dx*s+1.3*s,6*s],[dx*s,6*s+fl]], g); }    // quad micro-thrusters
+  else if(shipId==='warhead'){ poly([[-4*s,6*s],[4*s,6*s],[0,6*s+fl+3]], g); }                                          // thick booster
+  else { poly([[-2.6*s,5*s],[2.6*s,5*s],[0,5*s+fl]], g); }                                                               // dual ion / ribbon
+}
+// distinct flagship silhouette per ship (nose points up; H hull, A accent, G glow)
+function drawLeaderHull(s){
+  const H=shipHull, A=shipAccent, G=shipGlow;
+  switch(shipId){
+    case 'striker':   // forked navy speedster, swept-forward wings, cyan cannon tips
+      poly([[-3.6*s,-13*s],[-1.4*s,-13*s],[-2.5*s,3*s]], shade(H,0.9));
+      poly([[3.6*s,-13*s],[1.4*s,-13*s],[2.5*s,3*s]], shade(H,0.9));
+      poly([[-3.6*s,-13*s],[-1.4*s,-13*s],[-2.5*s,-9*s]], shade(G,1.2));
+      poly([[3.6*s,-13*s],[1.4*s,-13*s],[2.5*s,-9*s]], shade(G,1.2));
+      poly([[-2.5*s,2*s],[-10*s,-2*s],[-3*s,7*s]], shade(H,0.62));
+      poly([[2.5*s,2*s],[10*s,-2*s],[3*s,7*s]], shade(H,1.0));
+      poly([[-2.5*s,0],[2.5*s,0],[0,7*s]], shade(A,0.9));
+      poly([[-1*s,-3*s],[1*s,-3*s],[0,4*s]], shade(G,1.0));
+      break;
+    case 'ironclad': {  // wide hex wedge, olive armor band, hazard bumper
+      const hx=[[-7*s,-6*s],[7*s,-6*s],[10*s,2*s],[5*s,8*s],[-5*s,8*s],[-10*s,2*s]];
+      for(let k=0;k<hx.length;k++) poly([[0,0],hx[k],hx[(k+1)%hx.length]], shade(H,0.55+0.5*((k%3)/2)));
+      poly([[-7*s,-6*s],[7*s,-6*s],[5*s,-2*s],[-5*s,-2*s]], shade(A,0.95));
+      poly([[-7*s,-6*s],[7*s,-6*s],[0,-9.5*s]], shade(G,1.0));
+      poly([[-2.2*s,-1*s],[2.2*s,-1*s],[0,4*s]], shade(A,1.15));
+      break;
+    }
+    case 'warhead':   // T-shape ordnance boat, big amber side pods
+      poly([[0,-11*s],[-3.5*s,6*s],[3.5*s,6*s]], shade(H,0.92));
+      poly([[0,-11*s],[-1.6*s,-3*s],[1.6*s,-3*s]], shade(A,0.9));
+      for(const sx of [-1,1]){
+        poly([[sx*3.5*s,-6*s],[sx*9*s,-6*s],[sx*9*s,4*s],[sx*3.5*s,4*s]], shade(H, sx<0?0.68:0.85));
+        poly([[sx*3.5*s,-6*s],[sx*9*s,-6*s],[sx*6.2*s,-9.5*s]], shade(G,1.0));
+        poly([[sx*5.6*s,-4*s],[sx*6.8*s,-4*s],[sx*6.8*s,2*s],[sx*5.6*s,2*s]], shade(G,0.7));
+      }
+      break;
+    case 'prism':     // thin obsidian diamond, bright mint crystal lens
+      poly([[0,-13*s],[6*s,0],[0,7*s],[-6*s,0]], shade(H,0.95));
+      poly([[0,-13*s],[3*s,-2*s],[-3*s,-2*s]], shade(H,1.3));
+      poly([[6*s,0],[9*s,2*s],[4*s,1*s]], shade(A,0.9));
+      poly([[-6*s,0],[-9*s,2*s],[-4*s,1*s]], shade(A,0.7));
+      poly([[0,-7*s],[3*s,-1*s],[0,3*s],[-3*s,-1*s]], shade(G,1.0));
+      poly([[0,-5*s],[1.6*s,-1*s],[0,1.5*s],[-1.6*s,-1*s]], '#eafffb');
+      break;
+    case 'titan': {   // massive double-hull dreadnought, silver bridge, turrets, amethyst core
+      const t=s*1.2;
+      poly([[0,-12*t],[-11*t,3*t],[-6*t,9*t],[6*t,9*t],[11*t,3*t]], shade(H,0.8));
+      poly([[0,-12*t],[-11*t,3*t],[0,3*t]], shade(H,0.6));
+      poly([[0,-12*t],[11*t,3*t],[0,3*t]], shade(H,1.0));
+      poly([[0,-12*t],[-4.5*t,-1*t],[4.5*t,-1*t]], shade(A,0.95));
+      for(const sx of [-1,1]){ poly([[sx*6.5*t,1*t],[sx*10*t,3*t],[sx*6.5*t,5*t]], shade(A,0.75));
+        poly([[sx*7.6*t,2*t],[sx*8.8*t,3*t],[sx*7.6*t,4*t]], shade(G,1.0)); }
+      poly([[0,-8*t],[3*t,-2*t],[0,2*t],[-3*t,-2*t]], shade(G,1.1));
+      break;
+    }
+    default:          // vanguard — sharp steel delta with ice-blue cockpit
+      poly([[0,-13*s],[-9*s,7*s],[0,5*s]], shade(H,0.62));
+      poly([[0,-13*s],[9*s,7*s],[0,5*s]], shade(H,0.95));
+      poly([[0,-13*s],[-4*s,-1*s],[4*s,-1*s]], shade(A,1.0));
+      poly([[-4*s,-1*s],[4*s,-1*s],[0,5*s]], shade(A,0.7));
+      poly([[0,-6*s],[2*s,-1*s],[-2*s,-1*s]], shade(G,1.2));
+      break;
+  }
 }
 // leader hardpoints reflect current weapon tiers: kinetic barrels, missile pods, laser emitter
 function drawWeaponMounts(s){
