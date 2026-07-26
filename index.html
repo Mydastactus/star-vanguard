@@ -93,6 +93,12 @@
   .storebtn { background:linear-gradient(180deg,#c7b4ff,#7d5bff) !important; box-shadow:0 6px 0 #4b2fb8,0 12px 26px rgba(120,60,255,.4) !important; }
   .mapbtn { background:linear-gradient(180deg,#8fe0c0,#2f9c8a) !important; box-shadow:0 6px 0 #1b6b5e,0 12px 26px rgba(40,180,150,.35) !important; }
   .basebtn { background:linear-gradient(180deg,#ffd98f,#e0a02f) !important; box-shadow:0 6px 0 #a8720f,0 12px 26px rgba(220,160,40,.35) !important; color:#2a1c00 !important; }
+  /* prestige panel */
+  .prestige { width:100%; max-width:470px; background:rgba(46,28,66,.65); border:2px solid #a06fe0; border-radius:14px; padding:12px 14px; text-align:center; box-shadow:0 0 24px -8px #a06fe0; }
+  .ptitle { font-weight:900; letter-spacing:1px; color:#e0aaff; font-size:14px; margin-bottom:8px; }
+  .pwarn { font-size:12px; color:#ffb3b3; margin-bottom:8px; line-height:1.4; }
+  .psmall { font-size:12px; color:#9fb4dc; }
+  .ascendbtn { background:linear-gradient(180deg,#e6b3ff,#8f3fd6) !important; box-shadow:0 5px 0 #5e1f9c !important; color:#1a0630 !important; }
   /* galaxy map */
   .galaxy { display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; width:100%; max-width:470px; max-height:58vh; overflow-y:auto; padding:6px; }
   .gnode {
@@ -165,6 +171,7 @@
     <h1 style="font-size:clamp(26px,6.5vw,44px);">STARBASE</h1>
     <div class="gsummary" style="font-size:12px;color:#ffd76a;">Permanent upgrades — applied to every run</div>
     <div class="money">✦ <span id="baseXp">0</span> XP</div>
+    <div class="prestige" id="prestigePanel"></div>
     <div class="ships" id="baseCards"></div>
     <button class="btn" id="baseBackBtn" style="padding:12px 28px;font-size:16px;">◂ BACK</button>
   </div>
@@ -328,9 +335,11 @@ const SHIPS = [
 ];
 
 // persistent meta-progression (XP bank, owned & selected ships)
-let meta = { xp:0, owned:['vanguard'], selected:'vanguard', reached:1, cleared:0, base:{} };
-try { const s = JSON.parse(localStorage.getItem('sv_meta')||'null'); if(s && Array.isArray(s.owned)) meta = Object.assign({ reached:1, cleared:0, base:{} }, s); } catch(e){}
-if(!meta.base) meta.base = {};
+let meta = { xp:0, owned:['vanguard'], selected:'vanguard', reached:1, cleared:0, base:{}, prestige:0 };
+try { const s = JSON.parse(localStorage.getItem('sv_meta')||'null'); if(s && Array.isArray(s.owned)) meta = Object.assign({ reached:1, cleared:0, base:{}, prestige:0 }, s); } catch(e){}
+if(!meta.base) meta.base = {}; if(meta.prestige==null) meta.prestige = 0;
+function prestigeMul(){ return 1 + 0.25 * (meta.prestige||0); }
+function prestigeNeed(){ return 3 + (meta.prestige||0)*3; }   // systems to clear before next Ascension
 function saveMeta(){ try{ localStorage.setItem('sv_meta', JSON.stringify(meta)); }catch(e){} }
 function shipDef(id){ for(const s of SHIPS) if(s.id===id) return s; return SHIPS[0]; }
 
@@ -408,7 +417,8 @@ function reset(full){
   shieldMax = (ship.shield || 0) + fx.shield; shield = shieldMax;
   shipColor = ship.color; shipFireMul = (ship.fireMul || 1) * fx.fireMul;
   shipId = ship.id; shipHull = ship.hull||ship.color; shipAccent = ship.accent||ship.color; shipGlow = ship.glow||[255,255,255];
-  baseDmgMul = fx.dmgMul; baseXpMul = fx.xpMul;
+  const pmul = prestigeMul();
+  baseDmgMul = fx.dmgMul * pmul; baseXpMul = fx.xpMul * pmul;   // prestige boosts XP & damage
   if(full){ level = 1; score = 0; weapons = { kinetic: ship.kinetic || 1, missiles: ship.missiles || 0, lasers: ship.lasers || 0 }; }
   system = Math.floor((level-1)/SECTORS_PER_SYSTEM) + 1;
   sector = ((level-1) % SECTORS_PER_SYSTEM) + 1;
@@ -1434,11 +1444,38 @@ function renderGalaxy(){
   if(cur) cur.scrollIntoView({block:'center'});
 }
 let returnScreen = 'startScreen';   // where Hangar/Map/Starbase return to
+let prestigePending = false;
 function openStore(from){ returnScreen=from; renderStore(); showScreen('storeScreen'); }
 function openGalaxy(from){ returnScreen=from; renderGalaxy(); showScreen('galaxyScreen'); }
-function openBase(from){ returnScreen=from; renderBase(); showScreen('baseScreen'); }
+function openBase(from){ returnScreen=from; prestigePending=false; renderBase(); showScreen('baseScreen'); }
 function backFromOverlay(){ showScreen(returnScreen); if(returnScreen==='startScreen') updateMenuXP(); }
+function renderPrestige(){
+  const panel = document.getElementById('prestigePanel');
+  const p = meta.prestige||0, pmul = prestigeMul(), need = prestigeNeed(), eligible = meta.cleared >= need;
+  let action;
+  if(prestigePending){
+    action = `<div class="pwarn">⚠ Resets XP, Starbase upgrades & galaxy progress. Owned ships are kept.</div>`+
+      `<div class="row"><button class="btn ascendbtn" id="pConfirm" style="padding:8px 16px;font-size:13px">✓ CONFIRM</button>`+
+      `<button class="btn" id="pCancel" style="padding:8px 16px;font-size:13px">✕ CANCEL</button></div>`;
+  } else if(eligible){
+    action = `<button class="btn ascendbtn" id="pAscend" style="padding:9px 20px;font-size:14px">⭐ ASCEND → ×${(pmul+0.25).toFixed(2)}</button>`;
+  } else {
+    action = `<div class="psmall">Clear system <b style="color:#e0aaff">${need}</b> to unlock Ascension ${p+1}</div>`;
+  }
+  panel.innerHTML = `<div class="ptitle">PRESTIGE — Level ${p} · <span style="color:#ffd76a">×${pmul.toFixed(2)}</span> XP &amp; damage</div>${action}`;
+  const a=document.getElementById('pAscend'); if(a) a.onclick=()=>{ prestigePending=true; renderPrestige(); };
+  const c=document.getElementById('pConfirm'); if(c) c.onclick=doPrestige;
+  const x=document.getElementById('pCancel'); if(x) x.onclick=()=>{ prestigePending=false; renderPrestige(); };
+}
+function doPrestige(){
+  meta.prestige = (meta.prestige||0)+1;
+  meta.xp = 0; meta.base = {}; meta.reached = 1; meta.cleared = 0;
+  prestigePending = false; saveMeta(); updateMenuXP();
+  beep(300,0.35,'triangle',0.08);
+  renderBase();
+}
 function renderBase(){
+  renderPrestige();
   document.getElementById('baseXp').textContent = meta.xp.toLocaleString();
   const box = document.getElementById('baseCards'); box.innerHTML='';
   for(const u of BASE_UPGRADES){
