@@ -92,6 +92,7 @@
   .sbtn.lock { background:rgba(80,90,120,.25); color:#8090b0; }
   .storebtn { background:linear-gradient(180deg,#c7b4ff,#7d5bff) !important; box-shadow:0 6px 0 #4b2fb8,0 12px 26px rgba(120,60,255,.4) !important; }
   .mapbtn { background:linear-gradient(180deg,#8fe0c0,#2f9c8a) !important; box-shadow:0 6px 0 #1b6b5e,0 12px 26px rgba(40,180,150,.35) !important; }
+  .basebtn { background:linear-gradient(180deg,#ffd98f,#e0a02f) !important; box-shadow:0 6px 0 #a8720f,0 12px 26px rgba(220,160,40,.35) !important; color:#2a1c00 !important; }
   /* galaxy map */
   .galaxy { display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; width:100%; max-width:470px; max-height:58vh; overflow-y:auto; padding:6px; }
   .gnode {
@@ -135,10 +136,11 @@
     </div>
     <button class="btn" id="startBtn">LAUNCH ▸</button>
     <div class="row" style="margin-top:2px;">
-      <button class="btn storebtn" id="storeBtn" style="padding:12px 22px;font-size:15px;">🛰️ HANGAR</button>
-      <button class="btn mapbtn" id="mapBtn" style="padding:12px 22px;font-size:15px;">🌌 MAP</button>
-      <span class="chip">✦ <span id="menuXp">0</span> XP</span>
+      <button class="btn storebtn" id="storeBtn" style="padding:11px 16px;font-size:14px;">🛰️ HANGAR</button>
+      <button class="btn basebtn" id="baseBtn" style="padding:11px 16px;font-size:14px;">⭐ STARBASE</button>
+      <button class="btn mapbtn" id="mapBtn" style="padding:11px 16px;font-size:14px;">🌌 MAP</button>
     </div>
+    <span class="chip">✦ <span id="menuXp">0</span> XP</span>
   </div>
 
   <!-- GALAXY MAP -->
@@ -158,6 +160,15 @@
     <button class="btn" id="storeBackBtn" style="padding:12px 28px;font-size:16px;">◂ BACK</button>
   </div>
 
+  <!-- STARBASE -->
+  <div class="screen hidden" id="baseScreen">
+    <h1 style="font-size:clamp(26px,6.5vw,44px);">STARBASE</h1>
+    <div class="gsummary" style="font-size:12px;color:#ffd76a;">Permanent upgrades — applied to every run</div>
+    <div class="money">✦ <span id="baseXp">0</span> XP</div>
+    <div class="ships" id="baseCards"></div>
+    <button class="btn" id="baseBackBtn" style="padding:12px 28px;font-size:16px;">◂ BACK</button>
+  </div>
+
   <!-- LEVEL CLEAR -->
   <div class="screen hidden" id="clearScreen">
     <div class="big fadein" id="clearTitle">SECTOR CLEARED</div>
@@ -165,8 +176,9 @@
     <div class="uprompt">Choose a weapon upgrade</div>
     <div class="upgrades" id="upgradeCards"></div>
     <div class="row" style="margin:2px 0;">
-      <button class="btn storebtn" id="clearStoreBtn" style="padding:10px 18px;font-size:14px;">🛰️ HANGAR</button>
-      <button class="btn mapbtn" id="clearMapBtn" style="padding:10px 18px;font-size:14px;">🌌 MAP</button>
+      <button class="btn storebtn" id="clearStoreBtn" style="padding:9px 14px;font-size:13px;">🛰️ HANGAR</button>
+      <button class="btn basebtn" id="clearBaseBtn" style="padding:9px 14px;font-size:13px;">⭐ STARBASE</button>
+      <button class="btn mapbtn" id="clearMapBtn" style="padding:9px 14px;font-size:13px;">🌌 MAP</button>
     </div>
     <button class="btn" id="nextBtn" style="padding:12px 28px;font-size:16px;">NEXT SECTOR ▸</button>
   </div>
@@ -316,10 +328,33 @@ const SHIPS = [
 ];
 
 // persistent meta-progression (XP bank, owned & selected ships)
-let meta = { xp:0, owned:['vanguard'], selected:'vanguard', reached:1, cleared:0 };
-try { const s = JSON.parse(localStorage.getItem('sv_meta')||'null'); if(s && Array.isArray(s.owned)) meta = Object.assign({ reached:1, cleared:0 }, s); } catch(e){}
+let meta = { xp:0, owned:['vanguard'], selected:'vanguard', reached:1, cleared:0, base:{} };
+try { const s = JSON.parse(localStorage.getItem('sv_meta')||'null'); if(s && Array.isArray(s.owned)) meta = Object.assign({ reached:1, cleared:0, base:{} }, s); } catch(e){}
+if(!meta.base) meta.base = {};
 function saveMeta(){ try{ localStorage.setItem('sv_meta', JSON.stringify(meta)); }catch(e){} }
 function shipDef(id){ for(const s of SHIPS) if(s.id===id) return s; return SHIPS[0]; }
+
+// Starbase — permanent upgrades bought with XP, applied to every run
+const BASE_UPGRADES = [
+  { id:'reactor',    name:'Reactor Core',  icon:'⚡',  color:'#7fe0ff', max:5, base:300, per:'+8% fire rate',       fx:'faster auto-fire' },
+  { id:'plating',    name:'Hull Plating',  icon:'🛡️', color:'#8fd0a0', max:5, base:300, per:'+5% damage reduction', fx:'permanent armor' },
+  { id:'recruits',   name:'Recruit Bay',   icon:'👥',  color:'#ffd76a', max:5, base:250, per:'+2 starting legion',   fx:'bigger launch squad' },
+  { id:'munitions',  name:'Munitions Lab', icon:'💥',  color:'#ff9d57', max:5, base:350, per:'+8% weapon damage',    fx:'all weapons hit harder' },
+  { id:'reclaimer',  name:'XP Reclaimer',  icon:'✦',   color:'#c58dff', max:5, base:400, per:'+10% XP earned',       fx:'more XP every run' },
+  { id:'shieldcell', name:'Shield Cell',   icon:'⛨',   color:'#9fe0ff', max:5, base:500, per:'+1 shield / sector',   fx:'extra shield charge' }
+];
+function baseFx(){
+  const b = meta.base || {};
+  return {
+    recruits: (b.recruits||0)*2,
+    armor:    (b.plating||0)*0.05,
+    shield:   (b.shieldcell||0),
+    fireMul:  Math.pow(0.92, (b.reactor||0)),   // compounding faster fire
+    dmgMul:   1 + (b.munitions||0)*0.08,
+    xpMul:    1 + (b.reclaimer||0)*0.10
+  };
+}
+function baseCost(u){ return u.base * ((meta.base[u.id]||0) + 1); }
 
 // Per-sector visual themes (cycled as the level climbs) — low-poly palettes
 // ---------- Galaxy: 110 systems x 15 sectors; one procedurally-generated alien race per system ----------
@@ -353,23 +388,25 @@ let state = 'menu';    // menu | playing | clear | over
 let squad, bullets, enemies, gates, particles, floaters, stars, bossShots, missiles, asteroids, planet, theme, introT;
 let level, system, sector, distance, levelLen, score, best = 0, boss, shake, spawnTimer, gateTimer, fireTimer, missileTimer, laserTimer, missileNuke, tSpeed, flash;
 let weapons = { kinetic:1, missiles:0, lasers:0 };
-let shipArmor = 0, shield = 0, shieldMax = 0, shipColor = null, shipFireMul = 1;
+let shipArmor = 0, shield = 0, shieldMax = 0, shipColor = null, shipFireMul = 1, baseDmgMul = 1, baseXpMul = 1;
 try { best = parseInt(localStorage.getItem('sv_best')||'0',10)||0; } catch(e){}
 
 const SQUAD_Y = H - 130;          // where the squad rides
 const LANE_MARGIN = 46;
 
 function reset(full){
-  const ship = shipDef(meta.selected);
-  squad = { count: ship.startCount || C.startCount, x: W/2, spread: 26 };
+  const ship = shipDef(meta.selected), fx = baseFx();
+  squad = { count: (ship.startCount || C.startCount) + fx.recruits, x: W/2, spread: 26 };
   bullets = []; enemies = []; gates = []; particles = []; floaters = []; bossShots = []; missiles = [];
   if(!stars) initStars();
   distance = 0; boss = null; shake = 0; flash = 0;
   spawnTimer = 80; gateTimer = 55; fireTimer = 0; missileTimer = 0; laserTimer = 0; missileNuke = 0;
   targetX = W/2;
-  // ship special systems
-  shipArmor = ship.armor || 0; shieldMax = ship.shield || 0; shield = shieldMax;
-  shipColor = ship.color; shipFireMul = ship.fireMul || 1;
+  // ship systems + permanent starbase upgrades
+  shipArmor = Math.min(0.85, (ship.armor || 0) + fx.armor);
+  shieldMax = (ship.shield || 0) + fx.shield; shield = shieldMax;
+  shipColor = ship.color; shipFireMul = (ship.fireMul || 1) * fx.fireMul;
+  baseDmgMul = fx.dmgMul; baseXpMul = fx.xpMul;
   if(full){ level = 1; score = 0; weapons = { kinetic: ship.kinetic || 1, missiles: ship.missiles || 0, lasers: ship.lasers || 0 }; }
   system = Math.floor((level-1)/SECTORS_PER_SYSTEM) + 1;
   sector = ((level-1) % SECTORS_PER_SYSTEM) + 1;
@@ -489,7 +526,7 @@ function fireKinetic(dt){
   if(fireTimer <= 0){
     fireTimer = rate;
     const guns = Math.min(12, s.guns + Math.floor(squad.count/8));
-    const dmg = s.dmg + Math.floor(squad.count/60);
+    const dmg = (s.dmg + Math.floor(squad.count/60)) * baseDmgMul;
     for(let g=0; g<guns; g++){
       const off = (g - (guns-1)/2) * (squad.spread*2/Math.max(1,guns));
       bullets.push({ x:squad.x+off, y:SQUAD_Y-24, vy:-11, dmg, pierce:s.pierce||0, flak:s.flak||0, hit:null });
@@ -505,7 +542,7 @@ function fireMissiles(dt){
     missileTimer = Math.max(16, s.rate - m*1.5);
     for(let k=0;k<s.count;k++){
       missiles.push({ x:squad.x + (k-(s.count-1)/2)*16, y:SQUAD_Y-22, a:-Math.PI/2,
-        dmg:s.dmg, splash:s.splash, life:150, homing:s.homing, boss:s.boss, cluster:s.cluster||0 });
+        dmg:s.dmg*baseDmgMul, splash:s.splash, life:150, homing:s.homing, boss:s.boss, cluster:s.cluster||0 });
     }
     if(s.nuke && (++missileNuke) >= 4){ missileNuke = 0; antimatterNuke(); }
     beep(220,0.05,'sine',0.04);
@@ -513,7 +550,7 @@ function fireMissiles(dt){
 }
 function antimatterNuke(){
   shake = Math.max(shake,16); flash = Math.max(flash,0.6); beep(70,0.4,'sawtooth',0.09);
-  for(let j=enemies.length-1;j>=0;j--){ const en=enemies[j]; burst(en.x,en.y,'#c58dff',10); if(applyDamage(en, 40+level*6)) enemies.splice(j,1); }
+  for(let j=enemies.length-1;j>=0;j--){ const en=enemies[j]; burst(en.x,en.y,'#c58dff',10); if(applyDamage(en, (40+level*6)*baseDmgMul)) enemies.splice(j,1); }
   for(let k=0;k<30;k++){ const a=k/30*6.28; particles.push({ x:squad.x, y:SQUAD_Y-40, vx:Math.cos(a)*5, vy:Math.sin(a)*5, life:26, c:'#d6a8ff', r:3 }); }
 }
 function flakBurst(x,y,radius,dmg){
@@ -558,12 +595,12 @@ function handleLasers(dt){
     if(laserTimer <= 0){ laserTimer = Math.max(3, s.rate);
       const guns = Math.min(6, 1 + Math.floor(squad.count/8));
       for(let g=0; g<guns; g++){ const off=(g-(guns-1)/2)*10;
-        bullets.push({ x:squad.x+off, y:SQUAD_Y-24, vy:-13, dmg:s.dmg+Math.floor(squad.count/70), pierce:0, flak:0, laser:true, hit:null }); }
+        bullets.push({ x:squad.x+off, y:SQUAD_Y-24, vy:-13, dmg:(s.dmg+Math.floor(squad.count/70))*baseDmgMul, pierce:0, flak:0, laser:true, hit:null }); }
       beep(760,0.02,'sawtooth',0.015);
     }
     return;
   }
-  const beams = s.beams, hw = s.hw, dmg = s.dps*dt;     // Beam emitters
+  const beams = s.beams, hw = s.hw, dmg = s.dps*dt*baseDmgMul;     // Beam emitters
   for(let bi=0; bi<beams; bi++){
     const bx = squad.x + (bi-(beams-1)/2)*14;
     for(let j=enemies.length-1;j>=0;j--){ const en=enemies[j];
@@ -777,14 +814,14 @@ function finishSector(wasBoss){
   if(wasBoss){
     score += 300 + system*150;
     if(system > meta.cleared) meta.cleared = system;   // record galaxy progress
-    const gain = 100 + system*20; meta.xp += gain; saveMeta(); updateMenuXP();
+    const gain = Math.round((100 + system*20) * baseXpMul); meta.xp += gain; saveMeta(); updateMenuXP();
     const next = raceCache[system+1] || (raceCache[system+1] = makeRace(system+1));
     title.textContent = 'SYSTEM ' + system + ' CLEARED';
     document.getElementById('clearInfo').innerHTML =
       `<span class="stat">${theme.name}</span> mothership destroyed · +<span class="stat">${gain}</span> XP<br>` +
       (system < SYSTEMS_PER_GALAXY ? `Next: the <span class="stat">${next.name}</span> system` : `You have cleared the galaxy!`);
   } else {
-    const gain = 12 + level*3; meta.xp += gain; saveMeta(); updateMenuXP();   // reward each cleared sector
+    const gain = Math.round((12 + level*3) * baseXpMul); meta.xp += gain; saveMeta(); updateMenuXP();   // reward each cleared sector
     title.textContent = 'SECTOR ' + sector + ' CLEARED';
     document.getElementById('clearInfo').innerHTML =
       `System <span class="stat">${system}</span> · Sector <span class="stat">${sector}/${SECTORS_PER_SYSTEM}</span> · Legion <span class="stat">${squad.count.toLocaleString()}</span> · +<span class="stat">${gain}</span> XP`;
@@ -796,7 +833,7 @@ function finishSector(wasBoss){
 function gameOver(){
   state='over'; burst(squad.x, SQUAD_Y, '#ff6a6a', 30); shake=12;
   if(score>best){ best=score; try{localStorage.setItem('sv_best',String(best));}catch(e){} }
-  const gain = Math.floor(score/10) + level*20;   // XP from this run
+  const gain = Math.round((Math.floor(score/10) + level*20) * baseXpMul);   // XP from this run
   meta.xp += gain; saveMeta();
   document.getElementById('overInfo').innerHTML =
     `You reached Sector <span class="stat">${level}</span> · Score <span class="stat">${score.toLocaleString()}</span>`;
@@ -1326,10 +1363,38 @@ function renderGalaxy(){
   const cur = grid.querySelector('.next') || grid.querySelector('.charted');
   if(cur) cur.scrollIntoView({block:'center'});
 }
-let returnScreen = 'startScreen';   // where Hangar/Map return to
+let returnScreen = 'startScreen';   // where Hangar/Map/Starbase return to
 function openStore(from){ returnScreen=from; renderStore(); showScreen('storeScreen'); }
 function openGalaxy(from){ returnScreen=from; renderGalaxy(); showScreen('galaxyScreen'); }
+function openBase(from){ returnScreen=from; renderBase(); showScreen('baseScreen'); }
 function backFromOverlay(){ showScreen(returnScreen); if(returnScreen==='startScreen') updateMenuXP(); }
+function renderBase(){
+  document.getElementById('baseXp').textContent = meta.xp.toLocaleString();
+  const box = document.getElementById('baseCards'); box.innerHTML='';
+  for(const u of BASE_UPGRADES){
+    const lv = meta.base[u.id]||0, maxed = lv>=u.max, cost = baseCost(u);
+    const card = document.createElement('div'); card.className='shipcard'; card.style.setProperty('--sc', u.color);
+    let pips=''; for(let i=0;i<u.max;i++) pips+=`<span class="pip${i<lv?' on':''}" style="--wc:${u.color}"></span>`;
+    let btn;
+    if(maxed) btn='<span class="sbtn sel">MAX</span>';
+    else if(meta.xp>=cost) btn=`<span class="sbtn buy">BUY · ${cost}</span>`;
+    else btn=`<span class="sbtn lock">🔒 ${cost}</span>`;
+    card.innerHTML =
+      `<div class="shipicon">${u.icon}</div>`+
+      `<div class="sinfo"><div class="sname" style="color:${u.color}">${u.name} <span style="font-size:11px;color:#9fb4dc;font-weight:700">Lv ${lv}/${u.max}</span></div>`+
+      `<div class="pips" style="justify-content:flex-start;margin-top:4px">${pips}</div>`+
+      `<div class="ssys">${u.per} · ${u.fx}</div></div>`+ btn;
+    if(!maxed) card.onclick = ()=>baseBuy(u);
+    box.appendChild(card);
+  }
+}
+function baseBuy(u){
+  const lv = meta.base[u.id]||0; if(lv>=u.max) return;
+  const cost = baseCost(u);
+  if(meta.xp < cost){ beep(150,0.12,'sawtooth',0.05); return; }
+  meta.xp -= cost; meta.base[u.id] = lv+1; beep(700,0.14,'triangle',0.06);
+  saveMeta(); renderBase();
+}
 document.getElementById('startBtn').onclick = ()=>{ reset(true); state='playing'; showScreen(null); ac(); };
 document.getElementById('retryBtn').onclick = ()=>{ reset(true); state='playing'; showScreen(null); };
 document.getElementById('nextBtn').onclick  = ()=>{ level++; reset(false); state='playing'; showScreen(null); };
@@ -1340,6 +1405,9 @@ document.getElementById('storeBackBtn').onclick  = backFromOverlay;
 document.getElementById('mapBtn').onclick        = ()=>{ openGalaxy('startScreen'); ac(); };
 document.getElementById('clearMapBtn').onclick   = ()=>{ openGalaxy('clearScreen'); };
 document.getElementById('galaxyBackBtn').onclick = backFromOverlay;
+document.getElementById('baseBtn').onclick       = ()=>{ openBase('startScreen'); ac(); };
+document.getElementById('clearBaseBtn').onclick  = ()=>{ openBase('clearScreen'); };
+document.getElementById('baseBackBtn').onclick   = backFromOverlay;
 
 updateMenuXP();
 reset(true); state='menu';
