@@ -63,12 +63,34 @@
   .ucard:active { transform:translateY(3px); }
   .ucard .uicon { font-size:30px; line-height:1; }
   .ucard .uname { font-weight:900; letter-spacing:1px; margin-top:6px; font-size:15px; }
-  .ucard .ulvl { font-size:12px; font-weight:800; color:#d7e6ff; margin-top:5px; }
-  .ucard .udesc { font-size:11px; color:#93a7cf; margin-top:6px; line-height:1.45; }
+  .ucard .ulvl { font-size:11px; font-weight:800; color:#aebfe0; margin-top:5px; letter-spacing:1px; }
+  .ucard .utier { font-size:12.5px; font-weight:900; margin-top:5px; line-height:1.2; }
+  .ucard .udesc { font-size:11px; color:#93a7cf; margin-top:5px; line-height:1.4; }
   .ucard.maxed { opacity:.45; pointer-events:none; }
   .pips { display:flex; gap:3px; justify-content:center; margin-top:6px; }
   .pip { width:8px; height:8px; border-radius:2px; background:rgba(150,170,210,.25); }
   .pip.on { background:var(--wc); }
+  /* hangar / store */
+  .money { display:inline-flex; align-items:center; gap:6px; font-weight:900; color:#ffd76a; font-size:18px; }
+  .ships { display:flex; flex-direction:column; gap:10px; width:100%; max-width:470px; max-height:60vh; overflow-y:auto; padding:4px; }
+  .shipcard {
+    display:flex; align-items:center; gap:12px; text-align:left; cursor:pointer;
+    background:rgba(18,26,56,.6); border:2px solid var(--sc); border-radius:14px; padding:11px 14px;
+    transition:transform .06s ease, box-shadow .06s ease, background .06s ease;
+  }
+  .shipcard:hover { box-shadow:0 0 20px -6px var(--sc); }
+  .shipcard:active { transform:translateY(2px); }
+  .shipcard.selected { background:rgba(30,44,86,.8); }
+  .shipicon { font-size:26px; color:var(--sc); line-height:1; filter:drop-shadow(0 0 6px var(--sc)); }
+  .sinfo { flex:1; min-width:0; }
+  .sname { font-weight:900; letter-spacing:1px; font-size:16px; }
+  .ssys { font-size:12px; color:#9fb4dc; line-height:1.4; margin-top:3px; }
+  .sbtn { font-weight:900; font-size:12px; padding:8px 12px; border-radius:10px; white-space:nowrap; }
+  .sbtn.buy { background:linear-gradient(180deg,#9fd0ff,#3d84ff); color:#03102b; }
+  .sbtn.own { background:rgba(120,160,255,.2); color:#cfe0ff; border:1px solid rgba(120,160,255,.4); }
+  .sbtn.sel { background:rgba(125,255,168,.18); color:#7dffa8; border:1px solid rgba(125,255,168,.5); }
+  .sbtn.lock { background:rgba(80,90,120,.25); color:#8090b0; }
+  .storebtn { background:linear-gradient(180deg,#c7b4ff,#7d5bff) !important; box-shadow:0 6px 0 #4b2fb8,0 12px 26px rgba(120,60,255,.4) !important; }
 </style>
 </head>
 <body>
@@ -84,17 +106,29 @@
     <div class="how">
       Slide left / right to steer your squad through <b>energy gates</b>.<br>
       <span style="color:#7dffa8">Green ×/+</span> grows your legion &nbsp;·&nbsp; <span style="color:#ff7d7d">red −/÷</span> shrinks it.<br>
-      Your troopers auto-fire — blast the alien blockers, then crush the <b>boss mothership</b>.
+      Your troopers auto-fire — blast the <b>homing enemy ships</b>, then crush the <b>boss mothership</b>.
     </div>
     <div class="row" style="margin:4px 0 2px;">
       <span class="chip">🖱️ Drag</span><span class="chip">👆 Touch</span><span class="chip">⌨️ A / D · ← →</span>
     </div>
     <button class="btn" id="startBtn">LAUNCH ▸</button>
+    <div class="row" style="margin-top:2px;">
+      <button class="btn storebtn" id="storeBtn" style="padding:12px 24px;font-size:15px;">🛰️ HANGAR</button>
+      <span class="chip">✦ <span id="menuXp">0</span> XP</span>
+    </div>
+  </div>
+
+  <!-- HANGAR / STORE -->
+  <div class="screen hidden" id="storeScreen">
+    <h1 style="font-size:clamp(28px,7vw,48px);">HANGAR</h1>
+    <div class="money">✦ <span id="xpBalance">0</span> XP</div>
+    <div class="ships" id="shipCards"></div>
+    <button class="btn" id="storeBackBtn" style="padding:12px 28px;font-size:16px;">◂ BACK</button>
   </div>
 
   <!-- LEVEL CLEAR -->
   <div class="screen hidden" id="clearScreen">
-    <div class="big fadein">SECTOR CLEARED</div>
+    <div class="big fadein" id="clearTitle">SECTOR CLEARED</div>
     <div class="sub" id="clearInfo">—</div>
     <div class="uprompt">Choose a weapon upgrade</div>
     <div class="upgrades" id="upgradeCards"></div>
@@ -105,8 +139,15 @@
   <div class="screen hidden" id="overScreen">
     <div class="big" style="color:#ff8a8a">LEGION LOST</div>
     <div class="sub" id="overInfo">—</div>
-    <div class="row"><span class="chip">🏆 Best: <span id="bestScore" class="stat">0</span></span></div>
-    <button class="btn" id="retryBtn">REDEPLOY ▸</button>
+    <div class="row">
+      <span class="chip">✦ <span id="xpEarned" class="stat">+0</span> earned</span>
+      <span class="chip">Total <span id="xpTotal" class="stat">0</span> XP</span>
+      <span class="chip">🏆 <span id="bestScore" class="stat">0</span></span>
+    </div>
+    <div class="row">
+      <button class="btn" id="retryBtn">REDEPLOY ▸</button>
+      <button class="btn storebtn" id="overStoreBtn">🛰️ HANGAR</button>
+    </div>
   </div>
 </div>
 
@@ -182,45 +223,122 @@ const C = {
   bossHp: 300, bossHpPerLevel: 180, bossHpScore: 0.03,
   bossDescend: 0.06,                                 // how fast the boss creeps toward you
   bossShotGap: 60, bossShotLoss: 3,                  // boss projectile cadence & bite
-  weaponMax: 6                                       // max tier per weapon branch
+  weaponMax: 7                                       // max tier per weapon branch
 };
 
 // weapon branch display metadata
 const WMETA = {
-  kinetic:  { name:'KINETIC',  icon:'⚙️', color:'#7fe0ff', desc:'Rapid slugs — more guns & fire-rate.' },
-  missiles: { name:'MISSILES', icon:'🚀', color:'#ff9d57', desc:'Homing warheads with splash damage.' },
-  lasers:   { name:'LASERS',   icon:'✦',  color:'#8dff9f', desc:'Piercing beams — steer to aim.' }
+  kinetic:  { name:'KINETIC',  icon:'⚙️', color:'#7fe0ff' },
+  missiles: { name:'MISSILES', icon:'🚀', color:'#ff9d57' },
+  lasers:   { name:'LASERS',   icon:'✦',  color:'#8dff9f' }
 };
 
-// Per-sector visual themes (cycled as the level climbs) — low-poly palettes
-const THEMES = [
-  { name:'Azure Reach',    sky:['#101a44','#0a1130','#05060f'], planetHue:[96,132,255],  rock:[74,92,140],  alien:[150,80,230] },
-  { name:'Crimson Belt',   sky:['#2a0f22','#170a16','#08040a'], planetHue:[255,120,96],  rock:[150,84,84],  alien:[240,90,110] },
-  { name:'Verdant Drift',  sky:['#0a2a24','#08170f','#04080a'], planetHue:[90,220,150],  rock:[74,130,100], alien:[120,220,130] },
-  { name:'Amber Void',     sky:['#2a2410','#171206','#0a0804'], planetHue:[255,200,96],  rock:[150,120,60], alien:[240,180,80] },
-  { name:'Violet Expanse', sky:['#1e0f3a','#120a24','#06040f'], planetHue:[176,96,255],  rock:[112,84,162], alien:[205,96,255] }
+// ---- Named tech-tree tiers (index 1..7); each defines behavior at that level ----
+const KTIERS = [null,
+  { name:'Mass Drivers',                  guns:2, rate:8.0, dmg:2, pierce:0,  flak:0,  desc:'Dual EM cannons firing dense slugs. Reliable.' },
+  { name:'Twin Heavy Autocannons',        guns:3, rate:5.5, dmg:2, pierce:0,  flak:0,  desc:'Rapid heavy-caliber fire that shreds fighters.' },
+  { name:'High-Velocity Railguns',        guns:3, rate:5.5, dmg:3, pierce:2,  flak:0,  desc:'Armor-piercing rods punch through enemies in line.' },
+  { name:'Flak Blast Cannons',            guns:3, rate:5.0, dmg:3, pierce:1,  flak:40, desc:'Shells burst on impact — wide AoE vs swarms.' },
+  { name:'Gauss Slugstorm Arrays',        guns:5, rate:3.4, dmg:3, pierce:1,  flak:34, desc:'Quad arrays fill the screen with a wall of lead.' },
+  { name:'Hyper-Velocity Rotary Cannons', guns:4, rate:2.1, dmg:5, pierce:2,  flak:0,  desc:'Gatling miniguns — devastating single-target DPS.' },
+  { name:'Relativistic Accelerators',     guns:5, rate:3.0, dmg:7, pierce:99, flak:46, desc:'Near-light slugs tear through entire vertical lanes.' }
 ];
+const MTIERS = [null,
+  { name:'Dumbfire Rocket Pods',    count:1, rate:52, dmg:8,  splash:28, homing:false, cluster:0, boss:false, nuke:false, desc:'Unguided rockets that explode on impact.' },
+  { name:'Viper Heat-Seekers',      count:1, rate:46, dmg:10, splash:30, homing:true,  cluster:0, boss:false, nuke:false, desc:'Homing missiles that lock onto targets.' },
+  { name:'Cluster Strike Missiles', count:1, rate:44, dmg:10, splash:30, homing:true,  cluster:4, boss:false, nuke:false, desc:'Split mid-air into bomblets across the screen.' },
+  { name:'Swarm Interceptor Pods',  count:4, rate:30, dmg:7,  splash:24, homing:true,  cluster:0, boss:false, nuke:false, desc:'Dozens of micro-missiles weaving to targets.' },
+  { name:'Heavy Plasma Torpedoes',  count:1, rate:56, dmg:24, splash:60, homing:true,  cluster:0, boss:false, nuke:false, desc:'Slow ordnance with huge splash blasts.' },
+  { name:'Smart Cruise Missiles',   count:2, rate:32, dmg:16, splash:34, homing:true,  cluster:0, boss:true,  nuke:false, desc:'Prioritise high-health targets and bosses.' },
+  { name:'Antimatter Warheads',     count:2, rate:38, dmg:30, splash:72, homing:true,  cluster:0, boss:true,  nuke:true,  desc:'Implosions that wipe normal waves instantly.' }
+];
+const LTIERS = [null,
+  { name:'Pulse Lasers',             mode:'bolt', dmg:2,           rate:5,  color:'#ff5a6a', desc:'Fast red bolts, zero recoil, flat damage.' },
+  { name:'Continuous Beam Emitters', mode:'beam', beams:1, hw:6,  dps:0.42, color:'#6ea8ff', desc:'Solid beam that burns whatever it touches.' },
+  { name:'Heavy UV Scatter-Lasers',  mode:'beam', beams:3, hw:5,  dps:0.42, color:'#b98dff', desc:'Triple spread — broad lane coverage.' },
+  { name:'Focused Plasma Cutters',   mode:'beam', beams:3, hw:6,  dps:0.78, color:'#66ffd8', desc:'Superheated beams melt heavy shielding.' },
+  { name:'Prism Splitter Beams',     mode:'beam', beams:3, hw:6,  dps:0.78, split:true, color:'#8dff9f', desc:'Beams split to fry nearby escorts.' },
+  { name:'Positron Lances',          mode:'beam', beams:2, hw:12, dps:1.00, color:'#eaff66', desc:'Thick beams pierce the whole screen.' },
+  { name:'Singularity Beam Cannon',  mode:'beam', beams:2, hw:12, dps:1.15, pull:true, color:'#c58dff', desc:'Dark-energy rays drag enemies into the burn.' }
+];
+function wtier(w, lv){ const T = w==='kinetic'?KTIERS : w==='missiles'?MTIERS : LTIERS; return T[Math.max(1, Math.min(C.weaponMax, lv))]; }
+
+// Ships bought with XP — each grants a special system. (color = in-flight leader hue)
+const SHIPS = [
+  { id:'vanguard', name:'Vanguard', cost:0,    color:[222,238,255], startCount:10,
+    sys:'Balanced strike craft. Reliable all-rounder.' },
+  { id:'striker',  name:'Striker',  cost:400,  color:[150,230,255], startCount:10, kinetic:2, fireMul:0.75,
+    sys:'Overcharged cannons: 25% faster fire, starts Kinetic Lv2.' },
+  { id:'ironclad', name:'Ironclad', cost:500,  color:[180,205,150], startCount:14, armor:0.40,
+    sys:'Reinforced hull: takes 40% less combat damage, +4 legion.' },
+  { id:'warhead',  name:'Warhead',  cost:750,  color:[255,170,110], startCount:10, missiles:2,
+    sys:'Munitions bay: launches with Missiles Lv2 equipped.' },
+  { id:'prism',    name:'Prism',    cost:750,  color:[150,255,175], startCount:10, lasers:2, armor:0.15,
+    sys:'Beam array: launches with Lasers Lv2, light armor.' },
+  { id:'titan',    name:'Titan',    cost:1600, color:[210,180,255], startCount:18, armor:0.30, shield:3,
+    sys:'Flagship: huge legion, 30% armor, shield blocks 3 hits/sector.' }
+];
+
+// persistent meta-progression (XP bank, owned & selected ships)
+let meta = { xp:0, owned:['vanguard'], selected:'vanguard' };
+try { const s = JSON.parse(localStorage.getItem('sv_meta')||'null'); if(s && Array.isArray(s.owned)) meta = s; } catch(e){}
+function saveMeta(){ try{ localStorage.setItem('sv_meta', JSON.stringify(meta)); }catch(e){} }
+function shipDef(id){ for(const s of SHIPS) if(s.id===id) return s; return SHIPS[0]; }
+
+// Per-sector visual themes (cycled as the level climbs) — low-poly palettes
+// ---------- Galaxy: 110 systems x 15 sectors; one procedurally-generated alien race per system ----------
+const SECTORS_PER_SYSTEM = 15, SYSTEMS_PER_GALAXY = 110;
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function hslArr(h,s,l){ s/=100; l/=100; const k=n=>(n+h/30)%12, a=s*Math.min(l,1-l), f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1))); return [Math.round(255*f(0)),Math.round(255*f(8)),Math.round(255*f(4))]; }
+function hslStr(h,s,l){ return rgb(hslArr(h,s,l)); }
+const RACE_P = ['zor','kth','xel','vok','gra','nth','qua','mor','esh','tza','kai','pha','dro','vry','oln','ska','thu','yrr','gli','wex','brz','onn','sul','vae'];
+const RACE_S = ['vath','arr','oon','rix','ith','ux','ael','oth','yss','arn','ok','een','ash','ulu','ir','oz','ann','eth','ur','ix'];
+const raceCache = {};
+function makeRace(sys){
+  const rnd = mulberry32((sys*2654435761 ^ 0x9e3779b9) >>> 0);
+  const pick = arr => arr[Math.floor(rnd()*arr.length)];
+  const h = Math.floor(rnd()*360);
+  const name = (pick(RACE_P)+pick(RACE_S)).replace(/^./, c=>c.toUpperCase());
+  return {
+    name, hue:h,
+    sky:[ hslStr(h,50,15), hslStr((h+20)%360,45,9), '#04050f' ],
+    planetHue: hslArr((h+30)%360,60,58), rock: hslArr(h,25,42),
+    alien: hslArr(h,65,58), tint2: hslArr((h+35)%360,62,60),
+    seeker: hslArr((h+180)%360,82,62), bossAccent: hslArr((h+150)%360,85,62), hull: hslArr(h,45,28),
+    shape: pick(['dart','delta','crescent','spike','diamond','trident']),
+    bossHull: pick(['dread','halo','crescent','spire','hive','trident']),
+    homeMul: 0.6 + rnd()*1.2, speedMul: 0.85 + rnd()*0.45, swarmy: rnd(),
+    bossPattern: pick(['spread','aimed','spiral','burst'])
+  };
+}
 
 // ---------- Game State ----------
 let state = 'menu';    // menu | playing | clear | over
 let squad, bullets, enemies, gates, particles, floaters, stars, bossShots, missiles, asteroids, planet, theme, introT;
-let level, distance, levelLen, score, best = 0, boss, shake, spawnTimer, gateTimer, fireTimer, missileTimer, tSpeed, flash;
+let level, system, sector, distance, levelLen, score, best = 0, boss, shake, spawnTimer, gateTimer, fireTimer, missileTimer, laserTimer, missileNuke, tSpeed, flash;
 let weapons = { kinetic:1, missiles:0, lasers:0 };
+let shipArmor = 0, shield = 0, shieldMax = 0, shipColor = null, shipFireMul = 1;
 try { best = parseInt(localStorage.getItem('sv_best')||'0',10)||0; } catch(e){}
 
 const SQUAD_Y = H - 130;          // where the squad rides
 const LANE_MARGIN = 46;
 
 function reset(full){
-  squad = { count: C.startCount, x: W/2, spread: 26 };
+  const ship = shipDef(meta.selected);
+  squad = { count: ship.startCount || C.startCount, x: W/2, spread: 26 };
   bullets = []; enemies = []; gates = []; particles = []; floaters = []; bossShots = []; missiles = [];
   if(!stars) initStars();
   distance = 0; boss = null; shake = 0; flash = 0;
-  spawnTimer = 80; gateTimer = 55; fireTimer = 0; missileTimer = 0;
+  spawnTimer = 80; gateTimer = 55; fireTimer = 0; missileTimer = 0; laserTimer = 0; missileNuke = 0;
   targetX = W/2;
-  if(full){ level = 1; score = 0; weapons = { kinetic:1, missiles:0, lasers:0 }; }
-  theme = THEMES[(level-1) % THEMES.length];
-  introT = 130;                                          // "SECTOR n" banner timer
+  // ship special systems
+  shipArmor = ship.armor || 0; shieldMax = ship.shield || 0; shield = shieldMax;
+  shipColor = ship.color; shipFireMul = ship.fireMul || 1;
+  if(full){ level = 1; score = 0; weapons = { kinetic: ship.kinetic || 1, missiles: ship.missiles || 0, lasers: ship.lasers || 0 }; }
+  system = Math.floor((level-1)/SECTORS_PER_SYSTEM) + 1;
+  sector = ((level-1) % SECTORS_PER_SYSTEM) + 1;
+  theme = raceCache[system] || (raceCache[system] = makeRace(system));   // this system's alien race
+  introT = 140;                                          // "SYSTEM n · SECTOR m" banner timer
   levelLen = C.sectorLen + level*C.sectorLenPerLevel;   // scroll units before boss
   tSpeed = C.baseSpeed + level*C.speedPerLevel;         // world scroll speed
 }
@@ -276,7 +394,7 @@ function applyOp(o){
   else if(o.op==='-') c -= o.v;
   else if(o.op==='*') c *= o.v;
   else if(o.op==='/') c = Math.floor(c / o.v);
-  c = Math.max(0, Math.min(9999, Math.round(c)));
+  c = Math.max(0, Math.round(c));   // no upper cap — grow your legion as big as you can
   const delta = c - squad.count;
   squad.count = c;
   floaters.push({ x:squad.x, y:SQUAD_Y-40, life:60, txt:(delta>=0?'+':'')+delta, good:delta>=0 });
@@ -285,53 +403,85 @@ function applyOp(o){
 }
 
 function spawnBlocker(){
-  let kind = 'grunt';
+  const R = theme;   // this system's race
+  let kind = 'raider';
   const r = Math.random();
-  if(level>=5 && r<0.22) kind='heavy';         // tanky, slow  (sector 5+)
-  else if(level>=3 && r<0.45) kind='weaver';   // fast, weaves (sector 3+)
+  const seekCh = 0.16*(0.6+R.swarmy), heavyCh = 0.30*(1.4-R.swarmy), intCh = 0.5*(0.5+R.swarmy);
+  if(level>=4 && r<seekCh) kind='seeker';
+  else if(level>=5 && r<seekCh+heavyCh) kind='gunship';
+  else if(level>=3 && r<seekCh+heavyCh+intCh) kind='interceptor';
   let hp = Math.round((12 + level*8) * (0.7 + Math.random()*0.6));
-  let tint = theme.alien, sides = 7, spdMul = 1, weave = 0.6;
-  if(kind==='weaver'){ hp = Math.round(hp*0.7); tint=[80,205,235]; sides=6; spdMul=1.18; weave=2.4; }
-  else if(kind==='heavy'){ hp = Math.round(hp*2.0); tint=[240,120,80]; sides=9; spdMul=0.82; weave=0.3; }
+  let tint = R.alien, spdMul = 1, home = 0.008, rmul = 1;
+  if(kind==='interceptor'){ hp=Math.round(hp*0.7);  tint=R.tint2;  spdMul=1.20; home=0.020; rmul=0.9;  }
+  else if(kind==='gunship'){ hp=Math.round(hp*2.0);  tint=R.alien;  spdMul=0.80; home=0.004; rmul=1.35; }
+  else if(kind==='seeker'){  hp=Math.round(hp*0.55); tint=R.seeker; spdMul=1.35; home=0.038; rmul=0.85; }
+  spdMul *= R.speedMul; home *= R.homeMul;   // race tactics
+  const rad = (20 + Math.min(24, hp*0.22)) * rmul;
   const x = LANE_MARGIN + 30 + Math.random()*(W - 2*LANE_MARGIN - 60);
-  enemies.push({ x, y:-40, hp, max:hp, r:20+Math.min(24,hp*0.22), t:Math.random()*6, kind, tint, sides, spdMul, weave });
+  enemies.push({ x, y:-40, hp, max:hp, r:rad, t:Math.random()*6, kind, shape:R.shape, tint, spdMul, home, vx:0 });
 }
 function spawnBoss(){
-  const hp = Math.round(C.bossHp + level*C.bossHpPerLevel + score*C.bossHpScore);
-  boss = { x:W/2, y:-160, baseY:130, hp, max:hp, t:0, entered:false, w:230, h:120, shotT:C.bossShotGap };
+  const hp = Math.round(900 + system*550 + score*0.02);   // one milestone mothership per system
+  boss = { x:W/2, y:-160, baseY:130, hp, max:hp, t:0, entered:false, w:240, h:126, shotT:C.bossShotGap, spin:0 };
   beep(90,0.5,'sawtooth',0.09);
 }
+function fireBossPattern(){
+  const p = theme.bossPattern, sp = 4.2, bx = boss.x, by = boss.y+36;
+  if(p==='aimed'){
+    const a = Math.atan2(SQUAD_Y-by, squad.x-bx);
+    bossShots.push({ x:bx, y:by, vx:Math.cos(a)*5.4, vy:Math.sin(a)*5.4 });
+    boss.shotT = Math.max(14, boss.shotT*0.5);            // aimed fires faster
+  } else if(p==='spiral'){
+    boss.spin = (boss.spin||0) + 0.6;
+    for(let k=0;k<3;k++){ const a=boss.spin+k*2.094; bossShots.push({ x:bx, y:by, vx:Math.cos(a)*sp, vy:Math.abs(Math.sin(a))*sp + 1.4 }); }
+  } else if(p==='burst'){
+    for(let k=0;k<8;k++){ const a=k/8*6.28; bossShots.push({ x:bx, y:by, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp*0.55 + 2.2 }); }
+  } else {                                                 // spread (default)
+    const aim = Math.atan2(SQUAD_Y-by, squad.x-bx);
+    for(let k=-1;k<=1;k++){ const a=aim+k*0.22; bossShots.push({ x:bx, y:by, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp }); }
+  }
+  beep(160,0.08,'sawtooth',0.05);
+}
 
-// ---------- Combat ----------
-// KINETIC — rapid straight slugs; level adds guns, rate and damage
+// ---------- Combat (tier-driven from KTIERS / MTIERS / LTIERS) ----------
 function fireKinetic(dt){
   const k = weapons.kinetic; if(k<=0) return;
+  const s = KTIERS[k];
   fireTimer -= dt;
-  const rate = Math.max(C.fireMin, C.fireBase - Math.min(6, squad.count*0.1) - (k-1)*0.7);
+  const rate = Math.max(C.fireMin, (s.rate - Math.min(3, squad.count*0.05)) * shipFireMul);
   if(fireTimer <= 0){
     fireTimer = rate;
-    const guns = Math.min(11, 1 + Math.floor(squad.count/5) + Math.floor((k-1)/1.5));
-    const dmg = 1 + Math.floor(squad.count/50) + (k-1);
+    const guns = Math.min(12, s.guns + Math.floor(squad.count/8));
+    const dmg = s.dmg + Math.floor(squad.count/60);
     for(let g=0; g<guns; g++){
       const off = (g - (guns-1)/2) * (squad.spread*2/Math.max(1,guns));
-      bullets.push({ x:squad.x+off, y:SQUAD_Y-24, vy:-11, dmg });
+      bullets.push({ x:squad.x+off, y:SQUAD_Y-24, vy:-11, dmg, pierce:s.pierce||0, flak:s.flak||0, hit:null });
     }
     beep(880,0.02,'square',0.015);
   }
 }
-// MISSILES — homing warheads with splash; level adds cadence, count and damage
 function fireMissiles(dt){
   const m = weapons.missiles; if(m<=0) return;
+  const s = MTIERS[m];
   missileTimer -= dt;
   if(missileTimer <= 0){
-    missileTimer = Math.max(22, 72 - m*8);
-    const n = 1 + Math.floor(m/3);
-    for(let k=0;k<n;k++){
-      missiles.push({ x:squad.x + (k-(n-1)/2)*16, y:SQUAD_Y-22, a:-Math.PI/2,
-        dmg:6 + m*4, splash:34, life:130 });
+    missileTimer = Math.max(16, s.rate - m*1.5);
+    for(let k=0;k<s.count;k++){
+      missiles.push({ x:squad.x + (k-(s.count-1)/2)*16, y:SQUAD_Y-22, a:-Math.PI/2,
+        dmg:s.dmg, splash:s.splash, life:150, homing:s.homing, boss:s.boss, cluster:s.cluster||0 });
     }
+    if(s.nuke && (++missileNuke) >= 4){ missileNuke = 0; antimatterNuke(); }
     beep(220,0.05,'sine',0.04);
   }
+}
+function antimatterNuke(){
+  shake = Math.max(shake,16); flash = Math.max(flash,0.6); beep(70,0.4,'sawtooth',0.09);
+  for(let j=enemies.length-1;j>=0;j--){ const en=enemies[j]; burst(en.x,en.y,'#c58dff',10); if(applyDamage(en, 40+level*6)) enemies.splice(j,1); }
+  for(let k=0;k<30;k++){ const a=k/30*6.28; particles.push({ x:squad.x, y:SQUAD_Y-40, vx:Math.cos(a)*5, vy:Math.sin(a)*5, life:26, c:'#d6a8ff', r:3 }); }
+}
+function flakBurst(x,y,radius,dmg){
+  burst(x,y,'#ffd08a',8);
+  for(let j=enemies.length-1;j>=0;j--){ const en=enemies[j]; if(Math.hypot(en.x-x,en.y-y)<radius){ if(applyDamage(en,dmg)) enemies.splice(j,1); } }
 }
 function damageEnemy(en, dmg){
   en.hp -= dmg;
@@ -356,17 +506,44 @@ function missileExplode(m){
     if(d < m.splash){ if(applyDamage(en, d<m.splash*0.4 ? m.dmg : m.dmg*0.5)) enemies.splice(j,1); }
   }
   if(boss && boss.entered && Math.hypot(boss.x-m.x, boss.y-m.y) < m.splash+40){ boss.hp -= m.dmg; if(boss.hp<=0) defeatBoss(); }
+  // Cluster Strike: split into dumbfire bomblets fanning out
+  if(m.cluster>0){
+    for(let k=0;k<m.cluster;k++){ const a=-Math.PI/2 + (k-(m.cluster-1)/2)*0.5;
+      missiles.push({ x:m.x, y:m.y, a, dmg:m.dmg*0.5, splash:m.splash*0.7, life:55, homing:false, boss:false, cluster:0 }); }
+  }
 }
-// LASERS — continuous piercing beams from the squad; steer to keep targets lined up
-function applyLasers(dt){
+// LASERS — tier 1 fires bolts; tier 2+ are continuous beams (with split / pull perks)
+function handleLasers(dt){
   const l = weapons.lasers; if(l<=0) return;
-  const beams = 1 + Math.floor(l/2), hw = 5 + l*0.6, dmg = (0.25 + l*0.18)*dt;
+  const s = LTIERS[l];
+  if(s.mode==='bolt'){                                  // Pulse Lasers: fast projectile bolts
+    laserTimer -= dt;
+    if(laserTimer <= 0){ laserTimer = Math.max(3, s.rate);
+      const guns = Math.min(6, 1 + Math.floor(squad.count/8));
+      for(let g=0; g<guns; g++){ const off=(g-(guns-1)/2)*10;
+        bullets.push({ x:squad.x+off, y:SQUAD_Y-24, vy:-13, dmg:s.dmg+Math.floor(squad.count/70), pierce:0, flak:0, laser:true, hit:null }); }
+      beep(760,0.02,'sawtooth',0.015);
+    }
+    return;
+  }
+  const beams = s.beams, hw = s.hw, dmg = s.dps*dt;     // Beam emitters
   for(let bi=0; bi<beams; bi++){
     const bx = squad.x + (bi-(beams-1)/2)*14;
     for(let j=enemies.length-1;j>=0;j--){ const en=enemies[j];
-      if(en.y<SQUAD_Y && Math.abs(en.x-bx) < hw+en.r){ if(applyDamage(en,dmg)) enemies.splice(j,1); } }
+      if(s.pull && en.y<SQUAD_Y){ const d=en.x-bx; if(Math.abs(d)<70) en.x -= Math.sign(d)*Math.min(Math.abs(d),1.2)*dt; }
+      if(en.y<SQUAD_Y && Math.abs(en.x-bx) < hw+en.r){
+        if(applyDamage(en,dmg)){ enemies.splice(j,1); continue; }
+        if(s.split){ let nb=null,nd=1e9; for(const e2 of enemies){ if(e2!==en){ const d=Math.hypot(e2.x-en.x,e2.y-en.y); if(d<90&&d<nd){nd=d;nb=e2;} } } if(nb) applyDamage(nb,dmg*0.6); }
+      }
+    }
     if(boss && boss.entered && Math.abs(boss.x-bx) < boss.w/2){ boss.hp -= dmg; if(boss.hp<=0){ defeatBoss(); return; } }
   }
+}
+// Ship defenses: armor cuts incoming combat damage; a shield fully blocks a hit (regens each sector)
+function absorb(raw){
+  let loss = Math.max(0, Math.round(raw * (1 - shipArmor)));
+  if(loss>0 && shield>0){ shield--; floaters.push({ x:squad.x, y:SQUAD_Y-40, life:50, txt:'BLOCKED', good:true }); beep(520,0.08,'sine',0.05); return 0; }
+  return loss;
 }
 
 // ---------- Particles ----------
@@ -395,7 +572,7 @@ function update(dt){
   if(!boss) distance += sp;
   for(const s of stars){ s.y += sp*0.6*s.z + 0.3; if(s.y>H){ s.y=0; s.x=Math.random()*W; } }
 
-  fireKinetic(dt); fireMissiles(dt); applyLasers(dt);
+  fireKinetic(dt); fireMissiles(dt); handleLasers(dt);
 
   // spawn logic (until boss)
   if(!boss && distance < levelLen){
@@ -404,43 +581,59 @@ function update(dt){
     spawnTimer -= dt;
     if(spawnTimer <= 0){ spawnBlocker(); spawnTimer = Math.max(38, 100 + Math.random()*70 - level*7); }
   }
-  if(!boss && distance >= levelLen && enemies.length===0 && gates.length===0){ spawnBoss(); }
-
-  // bullets
-  for(let i=bullets.length-1;i>=0;i--){
-    const b=bullets[i]; b.y += b.vy*dt;
-    if(b.y < -20){ bullets.splice(i,1); continue; }
-    let hit=false;
-    // boss
-    if(boss && boss.entered && b.y < boss.y+boss.h/2 && b.y > boss.y-boss.h/2 && Math.abs(b.x-boss.x)<boss.w/2){
-      boss.hp -= b.dmg; particles.push(spark(b.x,b.y,'#ffd76a')); hit=true;
-      if(boss.hp<=0){ defeatBoss(); }
-    }
-    if(!hit) for(let j=0;j<enemies.length;j++){
-      const en=enemies[j];
-      if(Math.abs(b.x-en.x)<en.r && Math.abs(b.y-en.y)<en.r){
-        if(damageEnemy(en,b.dmg)) enemies.splice(j,1);
-        hit=true; break;
-      }
-    }
-    if(hit) bullets.splice(i,1);
+  if(!boss && distance >= levelLen && enemies.length===0 && gates.length===0){
+    if(sector >= SECTORS_PER_SYSTEM) spawnBoss();   // one mothership per system, at the final sector
+    else finishSector(false);
   }
 
-  // missiles (homing)
+  // bullets (kinetic slugs + laser bolts) — support pierce and flak airburst
+  for(let i=bullets.length-1;i>=0;i--){
+    const b=bullets[i]; b.y += b.vy*dt;
+    if(b.y < -24){ bullets.splice(i,1); continue; }
+    let remove=false, flakAt=null;
+    // boss
+    if(boss && boss.entered && b.y < boss.y+boss.h/2 && b.y > boss.y-boss.h/2 && Math.abs(b.x-boss.x)<boss.w/2){
+      boss.hp -= b.dmg; particles.push(spark(b.x,b.y,'#ffd76a'));
+      if(b.flak) flakAt={ x:b.x, y:b.y, r:b.flak, dmg:b.dmg*0.6 };
+      if(boss.hp<=0){ defeatBoss(); }
+      if((b.pierce = (b.pierce||0)-1) < 0) remove=true;
+    } else {
+      for(let j=enemies.length-1;j>=0;j--){
+        const en=enemies[j];
+        if((!b.hit || b.hit.indexOf(en)<0) && Math.abs(b.x-en.x)<en.r && Math.abs(b.y-en.y)<en.r){
+          if(damageEnemy(en,b.dmg)) enemies.splice(j,1);
+          if(b.flak) flakAt={ x:b.x, y:b.y, r:b.flak, dmg:b.dmg*0.6 };
+          if((b.pierce = (b.pierce||0)-1) < 0) remove=true; else (b.hit || (b.hit=[])).push(en);
+          break;
+        }
+      }
+    }
+    if(flakAt) flakBurst(flakAt.x, flakAt.y, flakAt.r, flakAt.dmg);
+    if(remove) bullets.splice(i,1);
+  }
+
+  // missiles — homing (unless dumbfire), with optional boss / high-HP priority
   for(let i=missiles.length-1;i>=0;i--){
     const m=missiles[i];
-    // acquire nearest enemy ahead, else the boss
-    let tgtx=m.x, tgty=m.y-120, best=1e9, found=false;
-    for(const en of enemies){ if(en.y < m.y+30){ const d=(en.x-m.x)*(en.x-m.x)+(en.y-m.y)*(en.y-m.y); if(d<best){ best=d; tgtx=en.x; tgty=en.y; found=true; } } }
-    if(!found && boss && boss.entered){ tgtx=boss.x; tgty=boss.y; }
-    const want=Math.atan2(tgty-m.y, tgtx-m.x);
-    m.a += Math.atan2(Math.sin(want-m.a), Math.cos(want-m.a)) * Math.min(1, 0.16*dt);
+    if(m.homing){
+      let tgtx=null, tgty=null;
+      if(m.boss && boss && boss.entered){ tgtx=boss.x; tgty=boss.y; }
+      else {
+        let bestv = m.boss ? -1 : 1e9;
+        for(const en of enemies){ if(en.y < m.y+30){
+          if(m.boss){ if(en.hp>bestv){ bestv=en.hp; tgtx=en.x; tgty=en.y; } }
+          else { const d=(en.x-m.x)*(en.x-m.x)+(en.y-m.y)*(en.y-m.y); if(d<bestv){ bestv=d; tgtx=en.x; tgty=en.y; } }
+        } }
+        if(tgtx===null && boss && boss.entered){ tgtx=boss.x; tgty=boss.y; }
+      }
+      if(tgtx!==null){ const want=Math.atan2(tgty-m.y, tgtx-m.x); m.a += Math.atan2(Math.sin(want-m.a), Math.cos(want-m.a)) * Math.min(1, 0.16*dt); }
+    }
     m.x += Math.cos(m.a)*8*dt; m.y += Math.sin(m.a)*8*dt; m.life -= dt;
     if(Math.random()<0.6) particles.push({ x:m.x, y:m.y, vx:(Math.random()-.5), vy:1.5, life:9, c:'#ffb060', r:2 });
     let hit=false;
     for(const en of enemies){ if(Math.abs(m.x-en.x)<en.r && Math.abs(m.y-en.y)<en.r){ missileExplode(m); hit=true; break; } }
     if(!hit && boss && boss.entered && Math.abs(m.x-boss.x)<boss.w/2 && Math.abs(m.y-boss.y)<boss.h/2){ missileExplode(m); hit=true; }
-    if(hit || m.y<-40 || m.life<=0){ missiles.splice(i,1); }
+    if(hit || m.y<-40 || m.x<-30 || m.x>W+30 || m.life<=0){ missiles.splice(i,1); }
   }
 
   // gates
@@ -457,18 +650,28 @@ function update(dt){
   // enemies move & collide with squad
   for(let i=enemies.length-1;i>=0;i--){
     const en=enemies[i]; en.y += sp*1.02*(en.spdMul||1); en.t += dt*0.1;
-    en.x += Math.sin(en.t)*(en.weave||0.6)*dt;
+    const prevx = en.x;
+    if(en.y < SQUAD_Y-10){                                // home only while above you — so a dodge works
+      en.x += (squad.x - en.x) * (en.home||0.008) * dt;
+      en.x += Math.sin(en.t*1.6) * 0.5 * dt;
+    }
     en.x = Math.max(LANE_MARGIN+en.r, Math.min(W-LANE_MARGIN-en.r, en.x));
-    if(en.y >= SQUAD_Y-14){
-      // remaining hp eats soldiers — shoot them down to soften the hit
-      let loss = Math.max(1, Math.round(en.hp*C.contactLossFactor));
-      loss = Math.min(loss, Math.max(1, Math.round(squad.count*C.contactLossMaxFrac)));
+    en.vx = en.x - prevx;
+    if(en.y >= SQUAD_Y-14 && en.y <= SQUAD_Y+22 && Math.abs(en.x - squad.x) < en.r + 8){
+      // only hits if it actually reaches you — remaining hp eats soldiers
+      let raw = Math.max(1, Math.round(en.hp*C.contactLossFactor));
+      raw = Math.min(raw, Math.max(1, Math.round(squad.count*C.contactLossMaxFrac)));
+      const loss = absorb(raw);
       squad.count = Math.max(0, squad.count - loss);
-      floaters.push({ x:squad.x, y:SQUAD_Y-40, life:55, txt:'-'+loss, good:false });
-      burst(en.x, SQUAD_Y-20, '#ff6a6a', 16); shake=Math.max(shake,8); flash=Math.max(flash,0.5);
-      beep(140,0.14,'sawtooth',0.07);
+      if(loss>0){
+        floaters.push({ x:squad.x, y:SQUAD_Y-40, life:55, txt:'-'+loss, good:false });
+        burst(en.x, SQUAD_Y-20, '#ff6a6a', 16); shake=Math.max(shake,8); flash=Math.max(flash,0.5);
+        beep(140,0.14,'sawtooth',0.07);
+      }
       enemies.splice(i,1);
       if(squad.count<=0){ return gameOver(); }
+    } else if(en.y > H+50){
+      enemies.splice(i,1);                                // flew past — successfully dodged
     }
   }
 
@@ -483,19 +686,14 @@ function update(dt){
       // fire an aimed spread you must dodge
       boss.shotT -= dt;
       if(boss.shotT <= 0){
-        boss.shotT = Math.max(26, C.bossShotGap - level*2);
-        const aim = Math.atan2(SQUAD_Y - boss.y, squad.x - boss.x);
-        for(let k=-1;k<=1;k++){
-          const a = aim + k*0.22;
-          bossShots.push({ x:boss.x, y:boss.y+40, vx:Math.cos(a)*4.2, vy:Math.sin(a)*4.2 });
-        }
-        beep(160,0.08,'sawtooth',0.05);
+        boss.shotT = Math.max(24, C.bossShotGap - level*1.5);
+        fireBossPattern();
       }
       // breach: if it reaches your line, big bite + recoil back up (comeback, not instant death)
       if(boss.baseY >= SQUAD_Y - 170){
-        const loss = Math.max(3, Math.round(squad.count*0.4));
+        const loss = absorb(Math.max(3, Math.round(squad.count*0.4)));
         squad.count = Math.max(0, squad.count - loss);
-        floaters.push({ x:squad.x, y:SQUAD_Y-40, life:60, txt:'-'+loss, good:false });
+        if(loss>0) floaters.push({ x:squad.x, y:SQUAD_Y-40, life:60, txt:'-'+loss, good:false });
         boss.baseY -= 120; shake = 14; flash = 0.7; beep(120,0.2,'sawtooth',0.08);
         if(squad.count<=0){ return gameOver(); }
       }
@@ -505,11 +703,13 @@ function update(dt){
   for(let i=bossShots.length-1;i>=0;i--){
     const s = bossShots[i]; s.x += s.vx*dt; s.y += s.vy*dt;
     if(s.y > H+20 || s.x < -20 || s.x > W+20){ bossShots.splice(i,1); continue; }
-    if(s.y >= SQUAD_Y-16 && Math.abs(s.x - squad.x) < squad.spread + 10){
-      const loss = Math.max(1, C.bossShotLoss + Math.floor(level/2));
+    if(Math.abs(s.y - SQUAD_Y) < 18 && Math.abs(s.x - squad.x) < 18){   // tight box — actually dodgeable
+      const loss = absorb(Math.max(1, C.bossShotLoss + Math.floor(level/2)));
       squad.count = Math.max(0, squad.count - loss);
-      floaters.push({ x:squad.x, y:SQUAD_Y-30, life:45, txt:'-'+loss, good:false });
-      burst(s.x, SQUAD_Y-16, '#ff6ad0', 10); shake=Math.max(shake,6); flash=Math.max(flash,0.35);
+      if(loss>0){
+        floaters.push({ x:squad.x, y:SQUAD_Y-30, life:45, txt:'-'+loss, good:false });
+        burst(s.x, SQUAD_Y-16, '#ff6ad0', 10); shake=Math.max(shake,6); flash=Math.max(flash,0.35);
+      }
       bossShots.splice(i,1);
       if(squad.count<=0){ return gameOver(); }
     }
@@ -531,17 +731,38 @@ function defeatBoss(){
   burst(boss.x, boss.y, '#ffd76a', 40); burst(boss.x, boss.y, '#ff8a4a', 30);
   score += 500 + level*200; shake=14; flash=0.7; beep(200,0.5,'triangle',0.09);
   boss=null;
+  finishSector(true);
+}
+// end of a sector — mothership (wasBoss=true) completes the whole system
+function finishSector(wasBoss){
   state='clear';
-  document.getElementById('clearInfo').innerHTML =
-    `Sector <span class="stat">${level}</span> secured · Legion strength <span class="stat">${squad.count}</span> · Score <span class="stat">${score.toLocaleString()}</span>`;
+  const title = document.getElementById('clearTitle');
+  if(wasBoss){
+    score += 300 + system*150;
+    const gain = 100 + system*20; meta.xp += gain; saveMeta(); updateMenuXP();
+    const next = raceCache[system+1] || (raceCache[system+1] = makeRace(system+1));
+    title.textContent = 'SYSTEM ' + system + ' CLEARED';
+    document.getElementById('clearInfo').innerHTML =
+      `<span class="stat">${theme.name}</span> mothership destroyed · +<span class="stat">${gain}</span> XP<br>` +
+      (system < SYSTEMS_PER_GALAXY ? `Next: the <span class="stat">${next.name}</span> system` : `You have cleared the galaxy!`);
+  } else {
+    title.textContent = 'SECTOR ' + sector + ' CLEARED';
+    document.getElementById('clearInfo').innerHTML =
+      `System <span class="stat">${system}</span> · Sector <span class="stat">${sector}/${SECTORS_PER_SYSTEM}</span> · Legion <span class="stat">${squad.count.toLocaleString()}</span>`;
+    beep(520,0.12,'triangle',0.05);
+  }
   showUpgradeCards();
   showScreen('clearScreen');
 }
 function gameOver(){
   state='over'; burst(squad.x, SQUAD_Y, '#ff6a6a', 30); shake=12;
   if(score>best){ best=score; try{localStorage.setItem('sv_best',String(best));}catch(e){} }
+  const gain = Math.floor(score/10) + level*20;   // XP from this run
+  meta.xp += gain; saveMeta();
   document.getElementById('overInfo').innerHTML =
     `You reached Sector <span class="stat">${level}</span> · Score <span class="stat">${score.toLocaleString()}</span>`;
+  document.getElementById('xpEarned').textContent = '+'+gain.toLocaleString();
+  document.getElementById('xpTotal').textContent = meta.xp.toLocaleString();
   document.getElementById('bestScore').textContent = best.toLocaleString();
   showScreen('overScreen');
 }
@@ -626,17 +847,27 @@ function drawAsteroids(T){
   }
 }
 function drawSectorBanner(){
-  const a=Math.min(1, introT/40);
+  const a=Math.min(1, introT/45);
   ctx.save(); ctx.globalAlpha=a; ctx.textAlign='center';
-  ctx.fillStyle='#eaf4ff'; ctx.font='900 32px Trebuchet MS';
-  ctx.fillText('SECTOR '+level, W/2, H*0.30);
-  ctx.fillStyle=rgb(theme.planetHue); ctx.font='700 15px Trebuchet MS';
-  ctx.fillText(theme.name.toUpperCase(), W/2, H*0.30+26);
+  ctx.fillStyle=rgb(theme.bossAccent); ctx.font='700 14px Trebuchet MS';
+  ctx.fillText('SYSTEM '+system+'  ·  SECTOR '+sector+' / '+SECTORS_PER_SYSTEM, W/2, H*0.27);
+  ctx.fillStyle='#eaf4ff'; ctx.font='900 30px Trebuchet MS';
+  ctx.fillText(theme.name.toUpperCase(), W/2, H*0.27+30);
+  if(sector>=SECTORS_PER_SYSTEM){ ctx.fillStyle='#ff9ad0'; ctx.font='900 13px Trebuchet MS';
+    ctx.fillText('⚠  MOTHERSHIP AHEAD', W/2, H*0.27+52); }
   ctx.restore(); ctx.globalAlpha=1;
 }
 
 function drawSquad(){
   const c = squad.count, x = squad.x, y = SQUAD_Y, T = performance.now();
+  // shield ring (faceted hex) when a shield charge is up
+  if(shield>0){
+    const rr = squad.spread + 18;
+    ctx.strokeStyle = 'rgba(130,220,255,'+(0.3 + 0.16*shield)+')'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    for(let k=0;k<=6;k++){ const a=k/6*6.28 + T*0.001; const px=x+Math.cos(a)*rr, py=y+Math.sin(a)*rr*0.7; k?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+    ctx.stroke();
+  }
   // wingmen cluster
   const shown = Math.min(30, c);
   for(let i=0;i<shown;i++){
@@ -656,7 +887,7 @@ function drawSquad(){
 function drawFighter(x,y,lead,seed){
   ctx.save(); ctx.translate(x,y);
   const s = lead ? 1.4 : 1;
-  const base = lead ? [222,238,255] : [150,186,236];
+  const base = lead ? (shipColor || [222,238,255]) : [150,186,236];
   // engine flame (flat flickering shard)
   const fl = 5 + (Math.floor(seed*0.05)%3);
   poly([[-2.6*s,5*s],[2.6*s,5*s],[0,5*s+fl]], lead?'#8fe6ff':'#5ab0ff');
@@ -666,13 +897,49 @@ function drawFighter(x,y,lead,seed){
   poly([N,A,B,M],   shade(base,0.95));   // right wing (lit)
   poly([N,A,A2],    shade(base,1.18));   // nose facet (bright)
   poly([[0,-4.5*s],[2*s,0],[-2*s,0]], lead?'#63d8ff':'#4a86e0'); // cockpit
+  if(lead) drawWeaponMounts(s);          // show equipped weapon tiers on the flagship
   ctx.restore();
+}
+// leader hardpoints reflect current weapon tiers: kinetic barrels, missile pods, laser emitter
+function drawWeaponMounts(s){
+  // KINETIC — forward barrels on the wings (longer/thicker/more with tier)
+  if(weapons.kinetic>0){
+    const k=weapons.kinetic, len=(4+k*1.2)*s, th=(k>=6?2.8:1.6)*s, pairs=k>=5?2:1;
+    for(const sx of [-1,1]) for(let p=0;p<pairs;p++){
+      const bx = sx*(3.6 + p*2.6)*s;
+      ctx.fillStyle = shade([150,220,255], p?0.8:1); ctx.fillRect(bx-th/2, -1*s-len, th, len);
+      ctx.fillStyle = '#eaffff'; ctx.fillRect(bx-th/2, -1*s-len, th, 2*s);   // muzzle
+    }
+  }
+  // MISSILES — underslung pods (more with tier)
+  if(weapons.missiles>0){
+    const m=weapons.missiles, pods=Math.min(3, Math.ceil(m/2));
+    for(const sx of [-1,1]) for(let p=0;p<pods;p++){
+      const px=sx*(5.5 + p*2.3)*s, py=1.6*s;
+      ctx.fillStyle='#c9793f'; ctx.fillRect(px-1.5*s, py-2*s, 3*s, 5*s);
+      poly([[px-1.5*s,py-2*s],[px+1.5*s,py-2*s],[px,py-4.6*s]], '#ffb070'); // warhead tip
+    }
+  }
+  // LASERS — nose emitter crystal (bigger + tier-colored)
+  if(weapons.lasers>0){
+    const l=weapons.lasers, col=LTIERS[l].color, sz=(2+l*0.5)*s, ny=-12.5*s;
+    poly([[0,ny-sz],[sz,ny],[0,ny+sz],[-sz,ny]], col);
+    poly([[0,ny-sz*0.45],[sz*0.45,ny],[0,ny+sz*0.45],[-sz*0.45,ny]], '#ffffff');
+  }
 }
 
 function drawBullets(){
   for(const b of bullets){
-    poly([[b.x,b.y-10],[b.x+2.6,b.y-1],[b.x,b.y+6],[b.x-2.6,b.y-1]], '#dff4ff');
-    poly([[b.x,b.y-6],[b.x+1.4,b.y],[b.x,b.y+3],[b.x-1.4,b.y]], '#7fd0ff');
+    if(b.laser){
+      poly([[b.x,b.y-12],[b.x+2.4,b.y],[b.x,b.y+6],[b.x-2.4,b.y]], '#ff9aa6');
+      poly([[b.x,b.y-8],[b.x+1.2,b.y],[b.x,b.y+3],[b.x-1.2,b.y]], '#ff5a6a');
+    } else if(b.flak){
+      poly([[b.x,b.y-10],[b.x+3,b.y],[b.x,b.y+5],[b.x-3,b.y]], '#ffcf8a');
+      poly([[b.x,b.y-6],[b.x+1.5,b.y],[b.x,b.y+3],[b.x-1.5,b.y]], '#fff0d0');
+    } else {
+      poly([[b.x,b.y-10],[b.x+2.6,b.y-1],[b.x,b.y+6],[b.x-2.6,b.y-1]], '#dff4ff');
+      poly([[b.x,b.y-6],[b.x+1.4,b.y],[b.x,b.y+3],[b.x-1.4,b.y]], '#7fd0ff');
+    }
   }
 }
 function drawMissiles(){
@@ -686,13 +953,13 @@ function drawMissiles(){
 }
 function drawLasers(){
   if(!squad || weapons.lasers<=0) return;
-  const l=weapons.lasers, beams=1+Math.floor(l/2), hw=5+l*0.6;
+  const s = LTIERS[weapons.lasers]; if(s.mode!=='beam') return;   // bolts drawn via drawBullets
+  const beams=s.beams, hw=s.hw, col=s.color;
   for(let bi=0;bi<beams;bi++){
     const bx = squad.x + (bi-(beams-1)/2)*14;
-    ctx.fillStyle='rgba(120,255,150,0.16)'; ctx.fillRect(bx-hw, 0, hw*2, SQUAD_Y-18);
-    ctx.fillStyle='rgba(190,255,200,0.85)'; ctx.fillRect(bx-2, 0, 4, SQUAD_Y-18);
-    // emitter node
-    poly([[bx-5,SQUAD_Y-16],[bx+5,SQUAD_Y-16],[bx,SQUAD_Y-24]], '#8dff9f');
+    ctx.globalAlpha=0.16; ctx.fillStyle=col; ctx.fillRect(bx-hw, 0, hw*2, SQUAD_Y-18); ctx.globalAlpha=1;
+    ctx.fillStyle=col; ctx.fillRect(bx-2, 0, 4, SQUAD_Y-18);
+    poly([[bx-5,SQUAD_Y-16],[bx+5,SQUAD_Y-16],[bx,SQUAD_Y-24]], col);
   }
 }
 function drawBossShots(){
@@ -729,39 +996,128 @@ function drawGateHalf(x0,x1,y,h,op){
 
 function drawEnemies(){
   for(const en of enemies){
-    ctx.save(); ctx.translate(en.x,en.y); ctx.rotate(en.t*0.3);
-    const base = en.tint || [150,80,230], sides = en.sides || 7, r = en.r;
-    // faceted outer shell
-    const v=[]; for(let k=0;k<sides;k++){ const a=k/sides*6.28; const rr=r*(0.8+0.34*((k*13%5)/4)); v.push([Math.cos(a)*rr, Math.sin(a)*rr]); }
-    for(let k=0;k<sides;k++){ const f=0.5 + 0.55*((k%3)/2); poly([[0,0],v[k],v[(k+1)%sides]], shade(base,f)); }
-    // bright faceted core
-    const cr=r*0.42, cv=[]; for(let k=0;k<sides;k++){ const a=k/sides*6.28+0.4; cv.push([Math.cos(a)*cr, Math.sin(a)*cr]); }
-    for(let k=0;k<sides;k++){ poly([[0,0],cv[k],cv[(k+1)%sides]], shade(base,1.35)); }
+    const r = en.r;
+    ctx.save(); ctx.translate(en.x,en.y);
+    ctx.rotate(Math.max(-0.4, Math.min(0.4, (en.vx||0)*0.06)));   // bank toward travel
+    // engine flame (top / rear, since ships face down toward you)
+    const fl = 5 + (Math.floor(en.t*13)%4);
+    poly([[-r*0.2,-r*0.62],[r*0.2,-r*0.62],[0,-r*0.62-fl]], shade(en.tint,1.25));
+    drawEnemyShip(en);
     ctx.restore();
-    // hp bar
+    // hp bar + count
     const p = en.hp/en.max;
     ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(en.x-r, en.y-r-13, r*2, 5);
-    ctx.fillStyle= shade(base,1.2); ctx.fillRect(en.x-r, en.y-r-13, r*2*p, 5);
+    ctx.fillStyle= shade(en.tint,1.2); ctx.fillRect(en.x-r, en.y-r-13, r*2*p, 5);
     ctx.font='900 13px Trebuchet MS'; ctx.textAlign='center'; ctx.fillStyle='#fff';
     ctx.fillText(Math.max(0,Math.ceil(en.hp)), en.x, en.y-r-17);
   }
 }
+// distinct low-poly silhouette per enemy type (nose points +y, toward the player)
+function drawEnemyShip(en){
+  const r=en.r, b=en.tint, sh=en.shape||'dart';
+  if(sh==='delta'){
+    poly([[0,r*1.3],[-r*0.3,-r*0.9],[0,-r*0.5]], shade(b,0.7));
+    poly([[0,r*1.3],[r*0.3,-r*0.9],[0,-r*0.5]], shade(b,1.0));
+    poly([[-r*0.2,-r*0.2],[-r*1.15,-r*0.55],[-r*0.05,-r*0.85]], shade(b,0.55));
+    poly([[r*0.2,-r*0.2],[r*1.15,-r*0.55],[r*0.05,-r*0.85]], shade(b,0.85));
+    poly([[0,r*0.7],[-r*0.16,r*0.2],[r*0.16,r*0.2]], shade(b,1.45));
+  } else if(sh==='crescent'){
+    poly([[0,r*0.4],[-r*1.1,-r*0.7],[-r*0.3,-r*0.1]], shade(b,0.7));
+    poly([[0,r*0.4],[r*1.1,-r*0.7],[r*0.3,-r*0.1]], shade(b,0.95));
+    poly([[-r*0.3,-r*0.1],[0,r*0.4],[r*0.3,-r*0.1]], shade(b,1.2));
+    poly([[0,r*0.4],[-r*0.18,r*0.95],[r*0.18,r*0.95]], shade(b,1.35));
+  } else if(sh==='spike'){
+    poly([[0,r*1.2],[r*0.7,0],[0,-r*0.9],[-r*0.7,0]], shade(b,0.85));
+    poly([[0,r*1.2],[r*0.35,r*0.1],[-r*0.35,r*0.1]], shade(b,1.1));
+    poly([[r*0.7,0],[r*1.15,-r*0.1],[r*0.5,-r*0.22]], shade(b,0.55));
+    poly([[-r*0.7,0],[-r*1.15,-r*0.1],[-r*0.5,-r*0.22]], shade(b,0.55));
+  } else if(sh==='diamond'){
+    poly([[0,r*1.15],[r*0.85,0],[0,-r*0.95],[-r*0.85,0]], shade(b,0.9));
+    poly([[0,r*1.15],[r*0.4,r*0.15],[-r*0.4,r*0.15]], shade(b,1.1));
+    poly([[0,-r*0.95],[r*0.4,-r*0.15],[-r*0.4,-r*0.15]], shade(b,0.55));
+    poly([[0,r*0.2],[r*0.28,-r*0.15],[-r*0.28,-r*0.15]], shade(b,1.4));
+  } else if(sh==='trident'){
+    poly([[0,r*1.25],[-r*0.28,-r*0.5],[r*0.28,-r*0.5]], shade(b,1.0));
+    poly([[-r*0.7,r*0.9],[-r*0.55,-r*0.4],[-r*0.3,-r*0.4]], shade(b,0.7));
+    poly([[r*0.7,r*0.9],[r*0.55,-r*0.4],[r*0.3,-r*0.4]], shade(b,0.85));
+    poly([[-r*0.5,-r*0.5],[r*0.5,-r*0.5],[0,-r*0.9]], shade(b,0.6));
+    poly([[0,r*0.4],[-r*0.16,0],[r*0.16,0]], shade(b,1.4));
+  } else {  // dart
+    poly([[0,r*1.15],[-r*0.85,-r*0.75],[0,-r*0.4]], shade(b,0.7));
+    poly([[0,r*1.15],[r*0.85,-r*0.75],[0,-r*0.4]], shade(b,1.0));
+    poly([[-r*0.85,-r*0.75],[-r*0.5,-r*0.92],[-r*0.15,-r*0.55]], shade(b,0.55));
+    poly([[r*0.85,-r*0.75],[r*0.5,-r*0.92],[r*0.15,-r*0.55]], shade(b,0.8));
+    poly([[0,r*0.5],[-r*0.22,r*0.02],[r*0.22,r*0.02]], shade(b,1.4));
+  }
+  // role accents so ship class stays readable within a race
+  if(en.kind==='gunship'){
+    poly([[-r*0.85,-r*0.2],[-r*1.3,r*0.05],[-r*0.85,r*0.5]], shade(b,0.5));
+    poly([[r*0.85,-r*0.2],[r*1.3,r*0.05],[r*0.85,r*0.5]], shade(b,0.7));
+  } else if(en.kind==='seeker'){
+    poly([[0,r*0.15],[r*0.26,-r*0.2],[-r*0.26,-r*0.2]], '#ffffff');
+  }
+}
+function rgba(a,al){ return 'rgba('+a[0]+','+a[1]+','+a[2]+','+al+')'; }
+function bossCore(cx,cy,cr,accent,T){
+  const pulse=0.85+Math.sin(T*0.15)*0.2, cv=[];
+  for(let k=0;k<6;k++){ const a=k/6*6.28; cv.push([cx+Math.cos(a)*cr, cy+Math.sin(a)*cr]); }
+  for(let k=0;k<6;k++){ poly([[cx,cy],cv[k],cv[(k+1)%6]], shade(accent,(k%2?1.0:1.4)*pulse)); }
+  poly([[cx-cr*0.4,cy-cr*0.4],[cx+cr*0.4,cy-cr*0.4],[cx,cy+cr*0.5]], '#ffffff');
+}
 function drawBoss(){
   const b=boss, T=b.t; ctx.save(); ctx.translate(b.x,b.y);
-  const base = [70,32,96], accent = theme ? theme.alien : [210,90,255];
-  const w=b.w, h=b.h;
-  const top=[0,-h*0.62], r1=[w*0.5,-h*0.05], r2=[w*0.26,h*0.55], bot=[0,h*0.72], l2=[-w*0.26,h*0.55], l1=[-w*0.5,-h*0.05];
-  // outstretched wings (flat facets behind hull)
-  poly([r1,[w*0.72,h*0.14],r2], shade(base,0.72));
-  poly([l1,[-w*0.72,h*0.14],l2], shade(base,0.5));
-  // faceted hull (fan of flat-shaded triangles)
-  const ring=[top,r1,r2,bot,l2,l1];
-  for(let k=0;k<ring.length;k++){ const f=0.5 + 0.5*((k%3)/2); poly([[0,-4],ring[k],ring[(k+1)%ring.length]], shade(base, f)); }
-  // faceted energy core
-  const pulse = 0.85 + Math.sin(T*0.15)*0.2;
-  const cr=26, cv=[]; for(let k=0;k<6;k++){ const a=k/6*6.28; cv.push([Math.cos(a)*cr, -6+Math.sin(a)*cr]); }
-  for(let k=0;k<6;k++){ poly([[0,-6],cv[k],cv[(k+1)%6]], shade(accent, (k%2?1.0:1.35)*pulse)); }
-  poly([[-6,-10],[6,-10],[0,2]], '#ffffff');
+  const hull = theme.hull, accent = theme.bossAccent, hi = theme.alien;
+  const w=b.w, h=b.h, HL = theme.bossHull||'dread';
+  // menacing aura in the race colour
+  const g=ctx.createRadialGradient(0,0,10,0,0,182);
+  g.addColorStop(0, rgba(accent,0.28)); g.addColorStop(1, rgba(accent,0));
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,182,0,6.28); ctx.fill();
+
+  if(HL==='halo'){
+    const R=w*0.44, ri=w*0.26, seg=12, rot=T*0.008;
+    for(let k=0;k<seg;k++){ const a0=k/seg*6.28+rot, a1=(k+1)/seg*6.28+rot;
+      const o0=[Math.cos(a0)*R,Math.sin(a0)*R*0.6], o1=[Math.cos(a1)*R,Math.sin(a1)*R*0.6];
+      const i0=[Math.cos(a0)*ri,Math.sin(a0)*ri*0.6], i1=[Math.cos(a1)*ri,Math.sin(a1)*ri*0.6];
+      poly([o0,o1,i1,i0], shade(k%3===0?hi:hull, 0.5+0.5*((k%3)/2)));
+    }
+    bossCore(0,0,24,accent,T);
+  } else if(HL==='crescent'){
+    const R=w*0.46, ri=w*0.28, seg=14;
+    for(let k=0;k<seg;k++){ if(k>=9 && k<=11) continue;   // gap at top = crescent opening
+      const a0=k/seg*6.28, a1=(k+1)/seg*6.28;
+      const o0=[Math.cos(a0)*R,Math.sin(a0)*R*0.62], o1=[Math.cos(a1)*R,Math.sin(a1)*R*0.62];
+      const i0=[Math.cos(a0)*ri,Math.sin(a0)*ri*0.62], i1=[Math.cos(a1)*ri,Math.sin(a1)*ri*0.62];
+      poly([o0,o1,i1,i0], shade(hull, 0.45+0.55*((k%3)/2)));
+    }
+    bossCore(0,h*0.22,24,accent,T);
+  } else if(HL==='spire'){
+    const tip=[0,h*0.9], back=[0,-h*0.7], rw=[w*0.42,-h*0.05], lw=[-w*0.42,-h*0.05], rm=[w*0.16,h*0.25], lm=[-w*0.16,h*0.25];
+    poly([tip,rm,rw], shade(hull,0.95)); poly([tip,lm,lw], shade(hull,0.6));
+    poly([back,rw,rm], shade(hull,0.8));  poly([back,lw,lm], shade(hull,0.48));
+    poly([tip,rm,lm], shade(hull,1.12));  poly([back,rm,lm], shade(hull,0.7));
+    bossCore(0,-h*0.08,24,accent,T);
+  } else if(HL==='hive'){
+    for(let p=0;p<5;p++){ const a=p/5*6.28 + T*0.01, px=Math.cos(a)*w*0.34, py=Math.sin(a)*w*0.34*0.62, pr=w*0.14;
+      const pv=[]; for(let k=0;k<6;k++){ const aa=k/6*6.28; pv.push([px+Math.cos(aa)*pr, py+Math.sin(aa)*pr]); }
+      for(let k=0;k<6;k++){ poly([[px,py],pv[k],pv[(k+1)%6]], shade(hull,0.5+0.5*((k%3)/2))); }
+      poly([[px,py-pr*0.35],[px+pr*0.35,py],[px-pr*0.35,py]], shade(hi,1.05));
+    }
+    bossCore(0,0,30,accent,T);
+  } else if(HL==='trident'){
+    for(const sx of [-1,0,1]){ const cx=sx*w*0.3, tip=[cx,h*0.85], tl=[cx-w*0.09,-h*0.4], tr=[cx+w*0.09,-h*0.4], mid=[cx,-h*0.1];
+      poly([tip,tr,mid], shade(hull,0.9)); poly([tip,tl,mid], shade(hull,0.6)); poly([tl,tr,mid], shade(hull,0.75));
+    }
+    poly([[-w*0.4,-h*0.35],[w*0.4,-h*0.35],[w*0.4,-h*0.15],[-w*0.4,-h*0.15]], shade(hull,0.7));  // crossbar
+    bossCore(0,-h*0.25,26,accent,T);
+  } else {  // dread — wide angular dreadnought with wings
+    const top=[0,-h*0.62], r1=[w*0.5,-h*0.05], r2=[w*0.26,h*0.55], bot=[0,h*0.72], l2=[-w*0.26,h*0.55], l1=[-w*0.5,-h*0.05];
+    poly([r1,[w*0.72,h*0.14],r2], shade(hull,0.72)); poly([l1,[-w*0.72,h*0.14],l2], shade(hull,0.5));
+    const ring=[top,r1,r2,bot,l2,l1];
+    for(let k=0;k<ring.length;k++){ const f=0.5+0.5*((k%3)/2); poly([[0,-4],ring[k],ring[(k+1)%ring.length]], shade(hull,f)); }
+    poly([[-w*0.3,h*0.1],[-w*0.18,h*0.1],[-w*0.24,h*0.32]], shade(hi,1.1));
+    poly([[w*0.3,h*0.1],[w*0.18,h*0.1],[w*0.24,h*0.32]], shade(hi,1.1));
+    bossCore(0,-6,26,accent,T);
+  }
   ctx.restore();
   // hp bar
   const p=Math.max(0,b.hp/b.max);
@@ -769,7 +1125,7 @@ function drawBoss(){
   ctx.fillStyle=rgb(accent); ctx.fillRect(40,60,(W-80)*p,14);
   ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=1.5; ctx.strokeRect(38,58,W-76,18);
   ctx.font='900 12px Trebuchet MS'; ctx.textAlign='center'; ctx.fillStyle='#fff';
-  ctx.fillText('◆ MOTHERSHIP ◆  '+Math.max(0,Math.ceil(b.hp)), W/2, 71);
+  ctx.fillText('◆ '+theme.name.toUpperCase()+' MOTHERSHIP ◆  '+Math.max(0,Math.ceil(b.hp)), W/2, 71);
 }
 
 function drawParticles(){
@@ -797,20 +1153,23 @@ function drawFloaters(){
 }
 function drawHUD(){
   ctx.textAlign='left';
-  roundRect(10,10,160,56,10); ctx.fillStyle='rgba(10,16,40,0.55)'; ctx.fill();
+  roundRect(10,10,192,56,10); ctx.fillStyle='rgba(10,16,40,0.55)'; ctx.fill();
   ctx.strokeStyle='rgba(120,160,255,0.25)'; ctx.lineWidth=1; ctx.stroke();
-  ctx.fillStyle='#8fb4ff'; ctx.font='700 11px Trebuchet MS'; ctx.fillText('SECTOR',22,28);
-  ctx.fillStyle='#eaf4ff'; ctx.font='900 21px Trebuchet MS'; ctx.fillText(level,22,52);
-  ctx.fillStyle='#8fb4ff'; ctx.font='700 11px Trebuchet MS'; ctx.fillText('SCORE',84,28);
-  ctx.fillStyle='#ffd76a'; ctx.font='900 21px Trebuchet MS'; ctx.fillText(score.toLocaleString(),84,52);
-  // progress to boss
+  ctx.fillStyle='#8fb4ff'; ctx.font='700 10px Trebuchet MS'; ctx.fillText('SYSTEM',20,26);
+  ctx.fillStyle='#eaf4ff'; ctx.font='900 20px Trebuchet MS'; ctx.fillText(system,20,50);
+  ctx.fillStyle='#8fb4ff'; ctx.font='700 10px Trebuchet MS'; ctx.fillText('SECTOR',68,26);
+  ctx.fillStyle='#eaf4ff'; ctx.font='900 16px Trebuchet MS'; ctx.fillText(sector+'/'+SECTORS_PER_SYSTEM,68,49);
+  ctx.fillStyle='#8fb4ff'; ctx.font='700 10px Trebuchet MS'; ctx.fillText('SCORE',124,26);
+  ctx.fillStyle='#ffd76a'; ctx.font='900 17px Trebuchet MS'; ctx.fillText(score.toLocaleString(),124,49);
+  // progress bar to the sector end (or mothership on sector 15)
   const p = boss?1:Math.min(1, distance/levelLen);
+  const finalSec = sector>=SECTORS_PER_SYSTEM;
   ctx.fillStyle='rgba(255,255,255,0.12)'; roundRect(W-150,20,130,9,4); ctx.fill();
-  ctx.fillStyle= boss?'#d67bff':'#5ad1ff'; roundRect(W-150,20,130*p,9,4); ctx.fill();
+  ctx.fillStyle= boss?'#d67bff':(finalSec?'#ff9ad0':'#5ad1ff'); roundRect(W-150,20,130*p,9,4); ctx.fill();
   ctx.fillStyle='#8fb4ff'; ctx.font='700 10px Trebuchet MS'; ctx.textAlign='right';
-  ctx.fillText(boss?'⚠ BOSS':'▸ BOSS', W-20, 42);
+  ctx.fillText(boss?'⚠ MOTHERSHIP':(finalSec?'▸ MOTHERSHIP':'▸ SECTOR END'), W-20, 42);
   // weapon loadout readout
-  ctx.textAlign='left'; ctx.font='900 13px Trebuchet MS';
+  ctx.textAlign='left'; ctx.font='900 12px Trebuchet MS';
   let wx=14; const wy=82;
   for(const w of ['kinetic','missiles','lasers']){ const lv=weapons[w], meta=WMETA[w];
     ctx.fillStyle = lv>0 ? meta.color : 'rgba(150,170,210,0.35)';
@@ -827,16 +1186,18 @@ function showUpgradeCards(){
   const box = document.getElementById('upgradeCards'); box.innerHTML='';
   for(const w of ['kinetic','missiles','lasers']){
     const lv=weapons[w], meta=WMETA[w], maxed = lv>=C.weaponMax;
+    const tier = wtier(w, maxed ? lv : lv+1);
     const card=document.createElement('div');
     card.className='ucard'+(maxed?' maxed':''); card.style.setProperty('--wc', meta.color);
     let pips=''; for(let i=0;i<C.weaponMax;i++) pips+=`<span class="pip${i<lv?' on':''}"></span>`;
-    const label = maxed ? 'MAX TIER' : (lv===0 ? 'UNLOCK → Lv 1' : 'Lv '+lv+'  →  '+(lv+1));
+    const label = maxed ? 'MAX TIER' : (lv===0 ? 'UNLOCK' : 'TIER '+lv+' → '+(lv+1));
     card.innerHTML =
       `<div class="uicon">${meta.icon}</div>`+
       `<div class="uname" style="color:${meta.color}">${meta.name}</div>`+
       `<div class="pips">${pips}</div>`+
       `<div class="ulvl">${label}</div>`+
-      `<div class="udesc">${meta.desc}</div>`;
+      `<div class="utier" style="color:${meta.color}">${tier.name}</div>`+
+      `<div class="udesc">${tier.desc}</div>`;
     if(!maxed) card.onclick = ()=>chooseUpgrade(w);
     box.appendChild(card);
   }
@@ -846,10 +1207,44 @@ function chooseUpgrade(w){
   beep(660,0.12,'triangle',0.06);
   level++; reset(false); state='playing'; showScreen(null);
 }
+// ---------- Hangar / store ----------
+function updateMenuXP(){ document.getElementById('menuXp').textContent = meta.xp.toLocaleString(); }
+function renderStore(){
+  document.getElementById('xpBalance').textContent = meta.xp.toLocaleString();
+  const box = document.getElementById('shipCards'); box.innerHTML='';
+  for(const s of SHIPS){
+    const owned = meta.owned.includes(s.id), selected = meta.selected===s.id, col = rgb(s.color);
+    const card = document.createElement('div');
+    card.className = 'shipcard' + (selected?' selected':'');
+    card.style.setProperty('--sc', col);
+    let btn;
+    if(selected) btn = '<span class="sbtn sel">✓ FLYING</span>';
+    else if(owned) btn = '<span class="sbtn own">SELECT</span>';
+    else if(meta.xp >= s.cost) btn = `<span class="sbtn buy">BUY · ${s.cost}</span>`;
+    else btn = `<span class="sbtn lock">🔒 ${s.cost} XP</span>`;
+    card.innerHTML =
+      `<div class="shipicon">▲</div>`+
+      `<div class="sinfo"><div class="sname" style="color:${col}">${s.name}</div><div class="ssys">${s.sys}</div></div>`+
+      btn;
+    card.onclick = ()=>storeClick(s);
+    box.appendChild(card);
+  }
+}
+function storeClick(s){
+  if(meta.selected===s.id) return;
+  if(meta.owned.includes(s.id)){ meta.selected=s.id; beep(560,0.08,'triangle',0.05); }
+  else if(meta.xp >= s.cost){ meta.xp -= s.cost; meta.owned.push(s.id); meta.selected=s.id; beep(700,0.14,'triangle',0.06); }
+  else { beep(150,0.12,'sawtooth',0.05); return; }
+  saveMeta(); renderStore();
+}
 document.getElementById('startBtn').onclick = ()=>{ reset(true); state='playing'; showScreen(null); ac(); };
 document.getElementById('retryBtn').onclick = ()=>{ reset(true); state='playing'; showScreen(null); };
 document.getElementById('nextBtn').onclick  = ()=>{ level++; reset(false); state='playing'; showScreen(null); };
+document.getElementById('storeBtn').onclick     = ()=>{ renderStore(); showScreen('storeScreen'); ac(); };
+document.getElementById('overStoreBtn').onclick = ()=>{ renderStore(); showScreen('storeScreen'); };
+document.getElementById('storeBackBtn').onclick = ()=>{ updateMenuXP(); showScreen('startScreen'); };
 
+updateMenuXP();
 reset(true); state='menu';
 requestAnimationFrame(loop);
 })();
