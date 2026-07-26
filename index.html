@@ -108,6 +108,8 @@
   .gnode.locked .gdot { background:#39415e; box-shadow:none; }
   .gnode.locked .gname { color:#5a6a86; }
   .gnode.locked { opacity:.6; }
+  .gnode.clickable { cursor:pointer; }
+  .gnode.clickable:hover { transform:translateY(-2px); filter:brightness(1.25); }
   @keyframes gpulse { 0%,100%{ box-shadow:0 0 10px -4px var(--gc);} 50%{ box-shadow:0 0 20px 0 var(--gc);} }
   .gsummary { color:#a9c2f0; font-size:14px; letter-spacing:1px; }
   .gsummary b { color:#7dffa8; }
@@ -143,6 +145,7 @@
   <div class="screen hidden" id="galaxyScreen">
     <h1 style="font-size:clamp(26px,6.5vw,44px);">GALAXY</h1>
     <div class="gsummary">Charted <b id="gReached">0</b> · Cleared <b id="gCleared">0</b> / 110 systems</div>
+    <div class="gsummary" id="gHint" style="font-size:12px;color:#8fe0c0;">▸ Tap a charted system to deploy there</div>
     <div class="galaxy" id="galaxyGrid"></div>
     <button class="btn" id="galaxyBackBtn" style="padding:12px 28px;font-size:16px;">◂ BACK</button>
   </div>
@@ -161,7 +164,11 @@
     <div class="sub" id="clearInfo">—</div>
     <div class="uprompt">Choose a weapon upgrade</div>
     <div class="upgrades" id="upgradeCards"></div>
-    <button class="btn" id="nextBtn" style="padding:12px 28px;font-size:16px;">SKIP ▸</button>
+    <div class="row" style="margin:2px 0;">
+      <button class="btn storebtn" id="clearStoreBtn" style="padding:10px 18px;font-size:14px;">🛰️ HANGAR</button>
+      <button class="btn mapbtn" id="clearMapBtn" style="padding:10px 18px;font-size:14px;">🌌 MAP</button>
+    </div>
+    <button class="btn" id="nextBtn" style="padding:12px 28px;font-size:16px;">NEXT SECTOR ▸</button>
   </div>
 
   <!-- GAME OVER -->
@@ -777,9 +784,10 @@ function finishSector(wasBoss){
       `<span class="stat">${theme.name}</span> mothership destroyed · +<span class="stat">${gain}</span> XP<br>` +
       (system < SYSTEMS_PER_GALAXY ? `Next: the <span class="stat">${next.name}</span> system` : `You have cleared the galaxy!`);
   } else {
+    const gain = 12 + level*3; meta.xp += gain; saveMeta(); updateMenuXP();   // reward each cleared sector
     title.textContent = 'SECTOR ' + sector + ' CLEARED';
     document.getElementById('clearInfo').innerHTML =
-      `System <span class="stat">${system}</span> · Sector <span class="stat">${sector}/${SECTORS_PER_SYSTEM}</span> · Legion <span class="stat">${squad.count.toLocaleString()}</span>`;
+      `System <span class="stat">${system}</span> · Sector <span class="stat">${sector}/${SECTORS_PER_SYSTEM}</span> · Legion <span class="stat">${squad.count.toLocaleString()}</span> · +<span class="stat">${gain}</span> XP`;
     beep(520,0.12,'triangle',0.05);
   }
   showUpgradeCards();
@@ -1269,7 +1277,32 @@ function storeClick(s){
   saveMeta(); renderStore();
 }
 // ---------- Galaxy map ----------
+// distribute earned upgrade picks across the 3 weapon branches (used when deploying deep)
+function scaleWeapons(picks){
+  const w = { kinetic:1, missiles:0, lasers:0 }, order = ['kinetic','missiles','lasers'];
+  let i=0, guard=0;
+  while(picks>0 && guard<400){
+    const k = order[i%3];
+    if(w[k] < C.weaponMax){ w[k]++; picks--; }
+    i++; guard++;
+    if(w.kinetic>=C.weaponMax && w.missiles>=C.weaponMax && w.lasers>=C.weaponMax) break;
+  }
+  return w;
+}
+function deployFrom(sys){
+  reset(true);                                   // fresh run with ship defaults (level 1)
+  if(sys > 1){
+    level = (sys-1)*SECTORS_PER_SYSTEM + 1;       // jump to that system, sector 1
+    const w = scaleWeapons((sys-1)*SECTORS_PER_SYSTEM);   // loadout matched to the depth
+    const ship = shipDef(meta.selected);
+    weapons = { kinetic:Math.max(w.kinetic, ship.kinetic||1), missiles:Math.max(w.missiles, ship.missiles||0), lasers:Math.max(w.lasers, ship.lasers||0) };
+    reset(false);                                 // recompute system/sector/theme (keeps weapons)
+  }
+  state='playing'; showScreen(null); ac();
+}
 function renderGalaxy(){
+  const deployable = (returnScreen === 'startScreen');   // launch-from-map only from the menu
+  document.getElementById('gHint').style.display = deployable ? '' : 'none';
   document.getElementById('gReached').textContent = meta.reached;
   document.getElementById('gCleared').textContent = meta.cleared;
   const grid = document.getElementById('galaxyGrid'); grid.innerHTML='';
@@ -1286,20 +1319,27 @@ function renderGalaxy(){
     node.style.setProperty('--gc', rgb(race.alien));
     const name = (cls==='locked') ? 'Unknown' : race.name;
     node.innerHTML = `<div class="gdot"></div><div class="gsys">SYS ${s}</div><div class="gname">${name}</div>`;
+    if(deployable && cls!=='locked'){ node.classList.add('clickable'); node.onclick = ()=>deployFrom(s); }
     grid.appendChild(node);
   }
   // scroll the current objective into view
   const cur = grid.querySelector('.next') || grid.querySelector('.charted');
   if(cur) cur.scrollIntoView({block:'center'});
 }
+let returnScreen = 'startScreen';   // where Hangar/Map return to
+function openStore(from){ returnScreen=from; renderStore(); showScreen('storeScreen'); }
+function openGalaxy(from){ returnScreen=from; renderGalaxy(); showScreen('galaxyScreen'); }
+function backFromOverlay(){ showScreen(returnScreen); if(returnScreen==='startScreen') updateMenuXP(); }
 document.getElementById('startBtn').onclick = ()=>{ reset(true); state='playing'; showScreen(null); ac(); };
 document.getElementById('retryBtn').onclick = ()=>{ reset(true); state='playing'; showScreen(null); };
 document.getElementById('nextBtn').onclick  = ()=>{ level++; reset(false); state='playing'; showScreen(null); };
-document.getElementById('storeBtn').onclick     = ()=>{ renderStore(); showScreen('storeScreen'); ac(); };
-document.getElementById('overStoreBtn').onclick = ()=>{ renderStore(); showScreen('storeScreen'); };
-document.getElementById('storeBackBtn').onclick = ()=>{ updateMenuXP(); showScreen('startScreen'); };
-document.getElementById('mapBtn').onclick        = ()=>{ renderGalaxy(); showScreen('galaxyScreen'); ac(); };
-document.getElementById('galaxyBackBtn').onclick = ()=>{ showScreen('startScreen'); };
+document.getElementById('storeBtn').onclick      = ()=>{ openStore('startScreen'); ac(); };
+document.getElementById('overStoreBtn').onclick  = ()=>{ openStore('overScreen'); };
+document.getElementById('clearStoreBtn').onclick = ()=>{ openStore('clearScreen'); };
+document.getElementById('storeBackBtn').onclick  = backFromOverlay;
+document.getElementById('mapBtn').onclick        = ()=>{ openGalaxy('startScreen'); ac(); };
+document.getElementById('clearMapBtn').onclick   = ()=>{ openGalaxy('clearScreen'); };
+document.getElementById('galaxyBackBtn').onclick = backFromOverlay;
 
 updateMenuXP();
 reset(true); state='menu';
