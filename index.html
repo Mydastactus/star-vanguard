@@ -91,6 +91,26 @@
   .sbtn.sel { background:rgba(125,255,168,.18); color:#7dffa8; border:1px solid rgba(125,255,168,.5); }
   .sbtn.lock { background:rgba(80,90,120,.25); color:#8090b0; }
   .storebtn { background:linear-gradient(180deg,#c7b4ff,#7d5bff) !important; box-shadow:0 6px 0 #4b2fb8,0 12px 26px rgba(120,60,255,.4) !important; }
+  .mapbtn { background:linear-gradient(180deg,#8fe0c0,#2f9c8a) !important; box-shadow:0 6px 0 #1b6b5e,0 12px 26px rgba(40,180,150,.35) !important; }
+  /* galaxy map */
+  .galaxy { display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; width:100%; max-width:470px; max-height:58vh; overflow-y:auto; padding:6px; }
+  .gnode {
+    position:relative; background:rgba(14,20,44,.6); border:1.5px solid rgba(90,110,160,.35); border-radius:10px;
+    padding:8px 4px 6px; text-align:center; overflow:hidden;
+  }
+  .gnode .gdot { width:14px; height:14px; border-radius:50%; margin:0 auto 4px; background:var(--gc); box-shadow:0 0 8px var(--gc); }
+  .gnode .gsys { font-size:10px; font-weight:900; color:#cfe0ff; letter-spacing:.5px; }
+  .gnode .gname { font-size:9.5px; color:#9fb4dc; line-height:1.2; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .gnode.cleared { border-color:var(--gc); background:rgba(30,44,70,.7); }
+  .gnode.cleared::after { content:'✓'; position:absolute; top:3px; right:5px; font-size:10px; font-weight:900; color:#7dffa8; }
+  .gnode.next { border-color:var(--gc); box-shadow:0 0 16px -3px var(--gc); animation:gpulse 1.3s ease-in-out infinite; }
+  .gnode.charted { border-color:rgba(150,170,255,.4); }
+  .gnode.locked .gdot { background:#39415e; box-shadow:none; }
+  .gnode.locked .gname { color:#5a6a86; }
+  .gnode.locked { opacity:.6; }
+  @keyframes gpulse { 0%,100%{ box-shadow:0 0 10px -4px var(--gc);} 50%{ box-shadow:0 0 20px 0 var(--gc);} }
+  .gsummary { color:#a9c2f0; font-size:14px; letter-spacing:1px; }
+  .gsummary b { color:#7dffa8; }
 </style>
 </head>
 <body>
@@ -113,9 +133,18 @@
     </div>
     <button class="btn" id="startBtn">LAUNCH ▸</button>
     <div class="row" style="margin-top:2px;">
-      <button class="btn storebtn" id="storeBtn" style="padding:12px 24px;font-size:15px;">🛰️ HANGAR</button>
+      <button class="btn storebtn" id="storeBtn" style="padding:12px 22px;font-size:15px;">🛰️ HANGAR</button>
+      <button class="btn mapbtn" id="mapBtn" style="padding:12px 22px;font-size:15px;">🌌 MAP</button>
       <span class="chip">✦ <span id="menuXp">0</span> XP</span>
     </div>
+  </div>
+
+  <!-- GALAXY MAP -->
+  <div class="screen hidden" id="galaxyScreen">
+    <h1 style="font-size:clamp(26px,6.5vw,44px);">GALAXY</h1>
+    <div class="gsummary">Charted <b id="gReached">0</b> · Cleared <b id="gCleared">0</b> / 110 systems</div>
+    <div class="galaxy" id="galaxyGrid"></div>
+    <button class="btn" id="galaxyBackBtn" style="padding:12px 28px;font-size:16px;">◂ BACK</button>
   </div>
 
   <!-- HANGAR / STORE -->
@@ -280,8 +309,8 @@ const SHIPS = [
 ];
 
 // persistent meta-progression (XP bank, owned & selected ships)
-let meta = { xp:0, owned:['vanguard'], selected:'vanguard' };
-try { const s = JSON.parse(localStorage.getItem('sv_meta')||'null'); if(s && Array.isArray(s.owned)) meta = s; } catch(e){}
+let meta = { xp:0, owned:['vanguard'], selected:'vanguard', reached:1, cleared:0 };
+try { const s = JSON.parse(localStorage.getItem('sv_meta')||'null'); if(s && Array.isArray(s.owned)) meta = Object.assign({ reached:1, cleared:0 }, s); } catch(e){}
 function saveMeta(){ try{ localStorage.setItem('sv_meta', JSON.stringify(meta)); }catch(e){} }
 function shipDef(id){ for(const s of SHIPS) if(s.id===id) return s; return SHIPS[0]; }
 
@@ -338,6 +367,7 @@ function reset(full){
   system = Math.floor((level-1)/SECTORS_PER_SYSTEM) + 1;
   sector = ((level-1) % SECTORS_PER_SYSTEM) + 1;
   theme = raceCache[system] || (raceCache[system] = makeRace(system));   // this system's alien race
+  if(system > meta.reached){ meta.reached = system; saveMeta(); }        // track furthest charted
   introT = 140;                                          // "SYSTEM n · SECTOR m" banner timer
   levelLen = C.sectorLen + level*C.sectorLenPerLevel;   // scroll units before boss
   tSpeed = C.baseSpeed + level*C.speedPerLevel;         // world scroll speed
@@ -739,6 +769,7 @@ function finishSector(wasBoss){
   const title = document.getElementById('clearTitle');
   if(wasBoss){
     score += 300 + system*150;
+    if(system > meta.cleared) meta.cleared = system;   // record galaxy progress
     const gain = 100 + system*20; meta.xp += gain; saveMeta(); updateMenuXP();
     const next = raceCache[system+1] || (raceCache[system+1] = makeRace(system+1));
     title.textContent = 'SYSTEM ' + system + ' CLEARED';
@@ -1237,12 +1268,38 @@ function storeClick(s){
   else { beep(150,0.12,'sawtooth',0.05); return; }
   saveMeta(); renderStore();
 }
+// ---------- Galaxy map ----------
+function renderGalaxy(){
+  document.getElementById('gReached').textContent = meta.reached;
+  document.getElementById('gCleared').textContent = meta.cleared;
+  const grid = document.getElementById('galaxyGrid'); grid.innerHTML='';
+  const next = meta.cleared + 1;
+  for(let s=1; s<=SYSTEMS_PER_GALAXY; s++){
+    const race = raceCache[s] || (raceCache[s] = makeRace(s));
+    let cls;
+    if(s <= meta.cleared) cls='cleared';
+    else if(s === next) cls='next';
+    else if(s <= meta.reached) cls='charted';
+    else cls='locked';
+    const node = document.createElement('div');
+    node.className = 'gnode ' + cls;
+    node.style.setProperty('--gc', rgb(race.alien));
+    const name = (cls==='locked') ? 'Unknown' : race.name;
+    node.innerHTML = `<div class="gdot"></div><div class="gsys">SYS ${s}</div><div class="gname">${name}</div>`;
+    grid.appendChild(node);
+  }
+  // scroll the current objective into view
+  const cur = grid.querySelector('.next') || grid.querySelector('.charted');
+  if(cur) cur.scrollIntoView({block:'center'});
+}
 document.getElementById('startBtn').onclick = ()=>{ reset(true); state='playing'; showScreen(null); ac(); };
 document.getElementById('retryBtn').onclick = ()=>{ reset(true); state='playing'; showScreen(null); };
 document.getElementById('nextBtn').onclick  = ()=>{ level++; reset(false); state='playing'; showScreen(null); };
 document.getElementById('storeBtn').onclick     = ()=>{ renderStore(); showScreen('storeScreen'); ac(); };
 document.getElementById('overStoreBtn').onclick = ()=>{ renderStore(); showScreen('storeScreen'); };
 document.getElementById('storeBackBtn').onclick = ()=>{ updateMenuXP(); showScreen('startScreen'); };
+document.getElementById('mapBtn').onclick        = ()=>{ renderGalaxy(); showScreen('galaxyScreen'); ac(); };
+document.getElementById('galaxyBackBtn').onclick = ()=>{ showScreen('startScreen'); };
 
 updateMenuXP();
 reset(true); state='menu';

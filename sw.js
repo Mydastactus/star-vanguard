@@ -1,5 +1,5 @@
 /* Star Vanguard service worker — offline caching */
-const CACHE = 'star-vanguard-v9';
+const CACHE = 'star-vanguard-v10';
 const ASSETS = [
   './',
   './index.html',
