@@ -25,7 +25,7 @@
     position:absolute; inset:0; display:flex; flex-direction:column;
     align-items:center; justify-content:center; text-align:center;
     background:radial-gradient(120% 80% at 50% 0%, rgba(30,50,120,.42), rgba(5,6,15,.80) 72%);
-    padding:24px; gap:18px; z-index:10;
+    padding:24px; gap:18px; z-index:10; overflow-y:auto;
   }
   h1 {
     font-size:clamp(40px,11vw,84px); letter-spacing:4px; font-weight:900; line-height:.95;
@@ -181,7 +181,7 @@
   <div class="screen hidden" id="clearScreen">
     <div class="big fadein" id="clearTitle">SECTOR CLEARED</div>
     <div class="sub" id="clearInfo">—</div>
-    <div class="uprompt">Choose a weapon upgrade</div>
+    <div class="uprompt">Choose an upgrade</div>
     <div class="upgrades" id="upgradeCards"></div>
     <div class="row" style="margin:2px 0;">
       <button class="btn storebtn" id="clearStoreBtn" style="padding:9px 14px;font-size:13px;">🛰️ HANGAR</button>
@@ -286,8 +286,11 @@ const C = {
 const WMETA = {
   kinetic:  { name:'KINETIC',  icon:'⚙️', color:'#7fe0ff' },
   missiles: { name:'MISSILES', icon:'🚀', color:'#ff9d57' },
-  lasers:   { name:'LASERS',   icon:'✦',  color:'#8dff9f' }
+  lasers:   { name:'LASERS',   icon:'✦',  color:'#8dff9f' },
+  shield:   { name:'SHIELD',   icon:'🛡️', color:'#9fd8ff' },
+  armor:    { name:'ARMOR',    icon:'⬢',  color:'#c2ccd6' }
 };
+const UPGRADE_BRANCHES = ['kinetic','missiles','lasers','shield','armor'];
 
 // ---- Named tech-tree tiers (index 1..7); each defines behavior at that level ----
 const KTIERS = [null,
@@ -341,7 +344,41 @@ const LTIERS = [null,
   { name:'Celestial Solar Beams',         mode:'beam', beams:3, hw:16, dps:1.60,     color:'#ffd76a', desc:'Golden rays engulf whole lanes in fire.' },
   { name:'Dimensional Disintegration Beams',mode:'beam', beams:4, hw:16, dps:1.90, pull:true, split:true, color:'#ffffff', desc:'Erase light enemies and bullets outright.' }
 ];
-function wtier(w, lv){ const T = w==='kinetic'?KTIERS : w==='missiles'?MTIERS : LTIERS; return T[Math.max(1, Math.min(C.weaponMax, lv))]; }
+const STIERS = [null,
+  { name:'Light Deflector Grid',      charges:1, regen:0,   desc:'Absorbs a few shots, standard recharge.' },
+  { name:'Pulse Phase Field',         charges:1, regen:480, desc:'Fast recharge when out of danger.' },
+  { name:'Reinforced Energy Shield',  charges:2, regen:480, desc:'Larger capacity for heavy hits.' },
+  { name:'Kinetic Dissipator',        charges:2, regen:420, desc:'Converts kinetic hits into shield power.' },
+  { name:'Rapid Recharging Matrix',   charges:2, regen:240, desc:'Drastically shorter regen cooldown.' },
+  { name:'Aegis Harmonic Field',      charges:3, regen:300, desc:'High capacity, deflects light bolts.' },
+  { name:'Reflective Plasma Barrier', charges:3, regen:300, desc:'Reflects absorbed energy at foes.' },
+  { name:'Electro-Magnetic Screen',   charges:3, regen:270, desc:'Reduces energy & laser damage.' },
+  { name:'Absorptive Ion Shield',     charges:4, regen:270, desc:'Chance to convert fire into energy.' },
+  { name:'Tesla Discharge Aegis',     charges:4, regen:240, desc:'Shocks nearby enemies when struck.' },
+  { name:'Heavy Phase Hardener',      charges:5, regen:240, desc:'Softens massive boss-level hits.' },
+  { name:'Temporal Singularity Shield',charges:5, regen:210, desc:'EMP bullet-clear blast on break.' },
+  { name:'Quantum Barrier Generator', charges:6, regen:180, desc:'Brief total-invuln phases.' },
+  { name:'Event-Horizon Null-Field',  charges:7, regen:150, desc:'Destroys low bullets before they land.' },
+  { name:'God-Hand Absolute Barrier', charges:9, regen:90,  desc:'Vast pool that recharges under fire.' }
+];
+const ATIERS = [null,
+  { name:'Reinforced Steel Plating',    dr:0.03, repair:0, desc:'Basic plates, flat health boost.' },
+  { name:'Titanium Composite Shell',    dr:0.06, repair:0, desc:'Light damage reduction vs small guns.' },
+  { name:'Blast-Resistant Reactive Armor',dr:0.09, repair:0, desc:'Absorbs extra explosive splash.' },
+  { name:'Hardened Alloy Carapace',     dr:0.12, repair:0, desc:'More hull vs sustained fire.' },
+  { name:'Impact Prow Carapace',        dr:0.15, repair:0, desc:'Heavy front plates for safe ramming.' },
+  { name:'Composite Ceramic Shielding', dr:0.18, repair:0, desc:'Heat resistance mitigates lasers.' },
+  { name:'Nanite Repair Matrix',        dr:0.21, repair:2, desc:'Micro-bots restore hull over time.' },
+  { name:'Dense Tungsten Carapace',     dr:0.24, repair:2, desc:'Cuts collision & knockback.' },
+  { name:'Ablative Heat Plating',       dr:0.27, repair:2, desc:'Flakes away to blunt burst damage.' },
+  { name:'Void-Forged Adamantine Hull', dr:0.30, repair:3, desc:'Ignores the lowest-tier bullets.' },
+  { name:'Heavy Molecular Mesh',        dr:0.34, repair:3, desc:'Spreads damage to avoid one-shots.' },
+  { name:'Self-Healing Bio-Metal',      dr:0.38, repair:5, desc:'Rapid repair when health drops low.' },
+  { name:'Graviton-Plated Hull',        dr:0.42, repair:5, desc:'Cuts knockback from screen chaos.' },
+  { name:'Hyper-Dense Neutronium Shell',dr:0.48, repair:6, desc:'Huge health — flying tanks.' },
+  { name:'Immovable Titan Carapace',    dr:0.55, repair:8, desc:'Near-immune to ramming & light fire.' }
+];
+function wtier(w, lv){ const T = w==='kinetic'?KTIERS : w==='missiles'?MTIERS : w==='lasers'?LTIERS : w==='shield'?STIERS : ATIERS; return T[Math.max(1, Math.min(C.weaponMax, lv))]; }
 
 // Ships bought with XP — each grants a special system. (color = in-flight leader hue)
 const SHIPS = [
@@ -421,10 +458,11 @@ function makeRace(sys){
 let state = 'menu';    // menu | playing | clear | over
 let squad, bullets, enemies, gates, particles, floaters, stars, bossShots, missiles, asteroids, planet, theme, introT;
 let level, system, sector, distance, levelLen, score, best = 0, boss, shake, spawnTimer, gateTimer, fireTimer, missileTimer, laserTimer, missileNuke, tSpeed, flash;
-let weapons = { kinetic:1, missiles:0, lasers:0 };
-let weaponProg = { kinetic:0, missiles:0, lasers:0 };   // picks banked toward the next tier
+let weapons = { kinetic:1, missiles:0, lasers:0, shield:0, armor:0 };
+let weaponProg = { kinetic:0, missiles:0, lasers:0, shield:0, armor:0 };   // picks banked toward the next tier
 function tierCost(t){ return Math.max(1, t); }          // picks to advance FROM tier t (cheap early, costly late)
 let shipArmor = 0, shield = 0, shieldMax = 0, shipColor = null, shipFireMul = 1, baseDmgMul = 1, baseXpMul = 1;
+let armorRepair = 0, armorRepairT = 0, shieldRegen = 0, shieldRegenT = 0;   // run-scoped defence-tree effects
 let shipId = 'vanguard', shipHull = [44,62,80], shipAccent = [74,144,226], shipGlow = [80,227,194];
 try { best = parseInt(localStorage.getItem('sv_best')||'0',10)||0; } catch(e){}
 
@@ -439,14 +477,20 @@ function reset(full){
   distance = 0; boss = null; shake = 0; flash = 0;
   spawnTimer = 80; gateTimer = 55; fireTimer = 0; missileTimer = 0; laserTimer = 0; missileNuke = 0;
   targetX = W/2;
-  // ship systems + permanent starbase upgrades
-  shipArmor = Math.min(0.85, (ship.armor || 0) + fx.armor);
-  shieldMax = (ship.shield || 0) + fx.shield; shield = shieldMax;
   shipColor = ship.color; shipFireMul = (ship.fireMul || 1) * fx.fireMul;
   shipId = ship.id; shipHull = ship.hull||ship.color; shipAccent = ship.accent||ship.color; shipGlow = ship.glow||[255,255,255];
   const pmul = prestigeMul();
   baseDmgMul = fx.dmgMul * pmul; baseXpMul = fx.xpMul * pmul;   // prestige boosts XP & damage
-  if(full){ level = 1; score = 0; weapons = { kinetic: ship.kinetic || 1, missiles: ship.missiles || 0, lasers: ship.lasers || 0 }; weaponProg = { kinetic:0, missiles:0, lasers:0 }; }
+  if(full){ level = 1; score = 0;
+    weapons = { kinetic: ship.kinetic || 1, missiles: ship.missiles || 0, lasers: ship.lasers || 0, shield: 0, armor: 0 };
+    weaponProg = { kinetic:0, missiles:0, lasers:0, shield:0, armor:0 };
+  }
+  // ship systems + permanent starbase upgrades + run-scoped defence trees
+  const aT = weapons.armor>0 ? ATIERS[weapons.armor] : null, sT = weapons.shield>0 ? STIERS[weapons.shield] : null;
+  shipArmor = Math.min(0.85, (ship.armor || 0) + fx.armor + (aT ? aT.dr : 0));
+  shieldMax = (ship.shield || 0) + fx.shield + (sT ? sT.charges : 0); shield = shieldMax;
+  armorRepair = aT ? aT.repair : 0; armorRepairT = 100;
+  shieldRegen = sT ? sT.regen : 0; shieldRegenT = shieldRegen;
   system = Math.floor((level-1)/SECTORS_PER_SYSTEM) + 1;
   sector = ((level-1) % SECTORS_PER_SYSTEM) + 1;
   theme = raceCache[system] || (raceCache[system] = makeRace(system));   // this system's alien race
@@ -834,6 +878,11 @@ function update(dt){
   for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=0.03*dt; p.life-=dt; if(p.life<=0) particles.splice(i,1); }
   for(let i=floaters.length-1;i>=0;i--){ const f=floaters[i]; f.y-=0.7*dt; f.life-=dt; if(f.life<=0) floaters.splice(i,1); }
 
+  // shield tree: regenerate charges mid-sector
+  if(shieldRegen>0 && shield<shieldMax){ shieldRegenT -= dt; if(shieldRegenT<=0){ shield++; shieldRegenT = shieldRegen;
+    floaters.push({ x:squad.x, y:SQUAD_Y-40, life:40, txt:'+shield', good:true }); } }
+  // armor tree: nanite self-repair of the legion
+  if(armorRepair>0 && squad.count>0){ armorRepairT -= dt; if(armorRepairT<=0){ armorRepairT = 100; squad.count += armorRepair; } }
   if(introT>0) introT -= dt;
   if(shake>0) shake=Math.max(0,shake-0.4*dt);
   if(flash>0) flash=Math.max(0,flash-0.03*dt);
@@ -1353,12 +1402,12 @@ function drawHUD(){
   ctx.fillStyle= boss?'#d67bff':(finalSec?'#ff9ad0':'#5ad1ff'); roundRect(W-150,20,130*p,9,4); ctx.fill();
   ctx.fillStyle='#8fb4ff'; ctx.font='700 10px Trebuchet MS'; ctx.textAlign='right';
   ctx.fillText(boss?'⚠ MOTHERSHIP':(finalSec?'▸ MOTHERSHIP':'▸ SECTOR END'), W-20, 42);
-  // weapon loadout readout
-  ctx.textAlign='left'; ctx.font='900 12px Trebuchet MS';
-  let wx=14; const wy=82;
-  for(const w of ['kinetic','missiles','lasers']){ const lv=weapons[w], meta=WMETA[w];
-    ctx.fillStyle = lv>0 ? meta.color : 'rgba(150,170,210,0.35)';
-    ctx.fillText(meta.name[0]+lv, wx, wy); wx += 30;
+  // loadout readout (all 5 branches)
+  ctx.textAlign='left'; ctx.font='900 11px Trebuchet MS';
+  let wx=13; const wy=82;
+  for(const w of UPGRADE_BRANCHES){ const lv=weapons[w], meta=WMETA[w];
+    ctx.fillStyle = lv>0 ? meta.color : 'rgba(150,170,210,0.32)';
+    ctx.fillText(meta.name[0]+lv, wx, wy); wx += 37;
   }
 }
 
@@ -1369,7 +1418,7 @@ function showScreen(id){
 }
 function showUpgradeCards(){
   const box = document.getElementById('upgradeCards'); box.innerHTML='';
-  for(const w of ['kinetic','missiles','lasers']){
+  for(const w of UPGRADE_BRANCHES){
     const lv=weapons[w], meta=WMETA[w], maxed = lv>=C.weaponMax;
     const tier = wtier(w, maxed ? lv : lv+1);
     const cost = tierCost(lv), prog = weaponProg[w]||0;
@@ -1429,13 +1478,13 @@ function storeClick(s){
 // ---------- Galaxy map ----------
 // distribute earned upgrade picks across the 3 weapon branches (used when deploying deep)
 function scaleWeapons(picks){
-  const w = { kinetic:1, missiles:0, lasers:0 }, pr = { kinetic:0, missiles:0, lasers:0 }, order = ['kinetic','missiles','lasers'];
+  const w = { kinetic:1, missiles:0, lasers:0, shield:0, armor:0 }, pr = { kinetic:0, missiles:0, lasers:0, shield:0, armor:0 }, order = UPGRADE_BRANCHES;
   let i=0, guard=0;
-  while(picks>0 && guard<3000){
-    const k = order[i%3];
+  while(picks>0 && guard<9000){
+    const k = order[i%order.length];
     if(w[k] < C.weaponMax){ pr[k]++; picks--; if(pr[k] >= tierCost(w[k])){ pr[k]=0; w[k]++; } }
     i++; guard++;
-    if(w.kinetic>=C.weaponMax && w.missiles>=C.weaponMax && w.lasers>=C.weaponMax) break;
+    if(order.every(b=>w[b]>=C.weaponMax)) break;
   }
   return w;
 }
@@ -1445,7 +1494,7 @@ function deployFrom(sys){
     level = (sys-1)*SECTORS_PER_SYSTEM + 1;       // jump to that system, sector 1
     const w = scaleWeapons((sys-1)*SECTORS_PER_SYSTEM);   // loadout matched to the depth
     const ship = shipDef(meta.selected);
-    weapons = { kinetic:Math.max(w.kinetic, ship.kinetic||1), missiles:Math.max(w.missiles, ship.missiles||0), lasers:Math.max(w.lasers, ship.lasers||0) };
+    weapons = { kinetic:Math.max(w.kinetic, ship.kinetic||1), missiles:Math.max(w.missiles, ship.missiles||0), lasers:Math.max(w.lasers, ship.lasers||0), shield:w.shield, armor:w.armor };
     reset(false);                                 // recompute system/sector/theme (keeps weapons)
   }
   state='playing'; showScreen(null); ac();
