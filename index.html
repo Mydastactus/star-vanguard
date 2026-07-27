@@ -68,7 +68,8 @@
   .ucard .udesc { font-size:11px; color:#93a7cf; margin-top:5px; line-height:1.4; }
   .ucard.maxed { opacity:.45; pointer-events:none; }
   .pips { display:flex; gap:3px; justify-content:center; margin-top:6px; }
-  .pip { width:8px; height:8px; border-radius:2px; background:rgba(150,170,210,.25); }
+  .pips { flex-wrap:wrap; gap:2px !important; }
+  .pip { width:6px; height:6px; border-radius:2px; background:rgba(150,170,210,.25); }
   .pip.on { background:var(--wc); }
   /* hangar / store */
   .money { display:inline-flex; align-items:center; gap:6px; font-weight:900; color:#ffd76a; font-size:18px; }
@@ -278,7 +279,7 @@ const C = {
   bossHp: 300, bossHpPerLevel: 180, bossHpScore: 0.03,
   bossDescend: 0.06,                                 // how fast the boss creeps toward you
   bossShotGap: 60, bossShotLoss: 3,                  // boss projectile cadence & bite
-  weaponMax: 7                                       // max tier per weapon branch
+  weaponMax: 15                                      // max tier per weapon branch
 };
 
 // weapon branch display metadata
@@ -290,31 +291,55 @@ const WMETA = {
 
 // ---- Named tech-tree tiers (index 1..7); each defines behavior at that level ----
 const KTIERS = [null,
-  { name:'Mass Drivers',                  guns:2, rate:8.0, dmg:2, pierce:0,  flak:0,  desc:'Dual EM cannons firing dense slugs. Reliable.' },
-  { name:'Twin Heavy Autocannons',        guns:3, rate:5.5, dmg:2, pierce:0,  flak:0,  desc:'Rapid heavy-caliber fire that shreds fighters.' },
-  { name:'High-Velocity Railguns',        guns:3, rate:5.5, dmg:3, pierce:2,  flak:0,  desc:'Armor-piercing rods punch through enemies in line.' },
-  { name:'Flak Blast Cannons',            guns:3, rate:5.0, dmg:3, pierce:1,  flak:40, desc:'Shells burst on impact — wide AoE vs swarms.' },
-  { name:'Gauss Slugstorm Arrays',        guns:5, rate:3.4, dmg:3, pierce:1,  flak:34, desc:'Quad arrays fill the screen with a wall of lead.' },
-  { name:'Hyper-Velocity Rotary Cannons', guns:4, rate:2.1, dmg:5, pierce:2,  flak:0,  desc:'Gatling miniguns — devastating single-target DPS.' },
-  { name:'Relativistic Accelerators',     guns:5, rate:3.0, dmg:7, pierce:99, flak:46, desc:'Near-light slugs tear through entire vertical lanes.' }
+  { name:'Mass Drivers',                  guns:2, rate:8.0, dmg:2,  pierce:0,  flak:0,  desc:'Dual EM cannons firing dense slugs.' },
+  { name:'Twin Light Autocannons',        guns:3, rate:5.0, dmg:2,  pierce:0,  flak:0,  desc:'Rapid cannons with moderate spread.' },
+  { name:'Heavy Caliber Shell Cannons',   guns:2, rate:9.0, dmg:6,  pierce:0,  flak:0,  desc:'Slow, high-damage shells that hit hard.' },
+  { name:'Rotary Vulcan Miniguns',        guns:4, rate:3.0, dmg:3,  pierce:0,  flak:0,  desc:'A steady high-rate stream of lead.' },
+  { name:'High-Velocity Railguns',        guns:3, rate:5.0, dmg:5,  pierce:2,  flak:0,  desc:'Armor-piercing rods punch through targets.' },
+  { name:'Flak Blast Cannons',            guns:3, rate:5.0, dmg:5,  pierce:1,  flak:40, desc:'Shells burst mid-air into wide AoE.' },
+  { name:'Gauss Slugstorm Arrays',        guns:5, rate:3.2, dmg:4,  pierce:1,  flak:34, desc:'Quad arrays fill your lane with lead.' },
+  { name:'Heavy Penetrator Rails',        guns:3, rate:5.0, dmg:7,  pierce:4,  flak:0,  desc:'Punch through multiple lined-up enemies.' },
+  { name:'Hyper-Velocity Rotary Cannons', guns:5, rate:2.0, dmg:6,  pierce:2,  flak:0,  desc:'Gatling fire built to shred boss bars.' },
+  { name:'Heavy Kinetic Mortars',         guns:2, rate:9.0, dmg:14, pierce:1,  flak:56, desc:'Massive shells shatter into shrapnel.' },
+  { name:'Mag-Pulse Accelerators',        guns:4, rate:4.0, dmg:9,  pierce:2,  flak:34, desc:'EM bursts that shock on impact.' },
+  { name:'Kinetic Scatter-Shredders',     guns:9, rate:4.0, dmg:5,  pierce:0,  flak:0,  desc:'Wide shotgun blasts clear swarms.' },
+  { name:'Relativistic Accelerators',     guns:5, rate:3.0, dmg:11, pierce:99, flak:40, desc:'Near-light slugs shockwave through lines.' },
+  { name:'Orbital Mass Drivers',          guns:5, rate:4.0, dmg:16, pierce:2,  flak:64, desc:'Shells rain shockwaves from above.' },
+  { name:'Event-Horizon Kinetic Cannons', guns:6, rate:3.0, dmg:24, pierce:99, flak:80, desc:'Collapse slugs crush gravity zones.' }
 ];
 const MTIERS = [null,
-  { name:'Dumbfire Rocket Pods',    count:1, rate:52, dmg:8,  splash:28, homing:false, cluster:0, boss:false, nuke:false, desc:'Unguided rockets that explode on impact.' },
-  { name:'Viper Heat-Seekers',      count:1, rate:46, dmg:10, splash:30, homing:true,  cluster:0, boss:false, nuke:false, desc:'Homing missiles that lock onto targets.' },
-  { name:'Cluster Strike Missiles', count:1, rate:44, dmg:10, splash:30, homing:true,  cluster:4, boss:false, nuke:false, desc:'Split mid-air into bomblets across the screen.' },
-  { name:'Swarm Interceptor Pods',  count:4, rate:30, dmg:7,  splash:24, homing:true,  cluster:0, boss:false, nuke:false, desc:'Dozens of micro-missiles weaving to targets.' },
-  { name:'Heavy Plasma Torpedoes',  count:1, rate:56, dmg:24, splash:60, homing:true,  cluster:0, boss:false, nuke:false, desc:'Slow ordnance with huge splash blasts.' },
-  { name:'Smart Cruise Missiles',   count:2, rate:32, dmg:16, splash:34, homing:true,  cluster:0, boss:true,  nuke:false, desc:'Prioritise high-health targets and bosses.' },
-  { name:'Antimatter Warheads',     count:2, rate:38, dmg:30, splash:72, homing:true,  cluster:0, boss:true,  nuke:true,  desc:'Implosions that wipe normal waves instantly.' }
+  { name:'Dumbfire Rocket Pods',        count:1, rate:52, dmg:8,  splash:28, homing:false, cluster:0, boss:false, nuke:false, desc:'Unguided rockets, straight ahead.' },
+  { name:'Viper Heat-Seekers',          count:1, rate:46, dmg:10, splash:30, homing:true,  cluster:0, boss:false, nuke:false, desc:'Homing missiles vs light fighters.' },
+  { name:'Light Cluster Rockets',       count:1, rate:44, dmg:10, splash:30, homing:true,  cluster:3, boss:false, nuke:false, desc:'Split into 3 bomblets before impact.' },
+  { name:'Swarm Micro-Missiles',        count:4, rate:30, dmg:7,  splash:24, homing:true,  cluster:0, boss:false, nuke:false, desc:'Spirals of small homing rockets.' },
+  { name:'Heavy Torpedo Pods',          count:1, rate:56, dmg:22, splash:50, homing:true,  cluster:0, boss:false, nuke:false, desc:'Slow warheads vs armored targets.' },
+  { name:'Napalm Warheads',             count:2, rate:40, dmg:13, splash:46, homing:true,  cluster:0, boss:false, nuke:false, desc:'Blasts leave lingering fire hazards.' },
+  { name:'Smart Cruise Missiles',       count:2, rate:34, dmg:16, splash:34, homing:true,  cluster:0, boss:true,  nuke:false, desc:'Seek high-health targets and bosses.' },
+  { name:'MIRV Warhead Launchers',      count:1, rate:48, dmg:16, splash:32, homing:true,  cluster:6, boss:false, nuke:false, desc:'Divide into 6 warheads across the screen.' },
+  { name:'EMP Interceptors',            count:2, rate:34, dmg:14, splash:44, homing:true,  cluster:0, boss:false, nuke:false, desc:'Static fields disrupt enemy fire.' },
+  { name:'Heavy Plasma Torpedoes',      count:1, rate:56, dmg:32, splash:62, homing:true,  cluster:0, boss:false, nuke:false, desc:'Massive lingering splash blasts.' },
+  { name:'Sub-Space Homing Array',      count:3, rate:30, dmg:18, splash:32, homing:true,  cluster:0, boss:true,  nuke:false, desc:'Phase through cover to hit anything.' },
+  { name:'Antimatter Warheads',         count:2, rate:40, dmg:34, splash:74, homing:true,  cluster:0, boss:true,  nuke:true,  desc:'Annihilation rockets clear screen areas.' },
+  { name:'Quantum Cascade Missiles',    count:2, rate:36, dmg:30, splash:70, homing:true,  cluster:4, boss:true,  nuke:false, desc:'Every kill triggers a sub-explosion.' },
+  { name:'Hyper-Nova Cluster Batteries',count:3, rate:32, dmg:28, splash:64, homing:true,  cluster:6, boss:false, nuke:true,  desc:'Blankets the screen in micro-blasts.' },
+  { name:'Apocalypse Missile Silos',    count:3, rate:34, dmg:46, splash:92, homing:true,  cluster:0, boss:true,  nuke:true,  desc:'Barrage that wipes standard waves.' }
 ];
 const LTIERS = [null,
-  { name:'Pulse Lasers',             mode:'bolt', dmg:2,           rate:5,  color:'#ff5a6a', desc:'Fast red bolts, zero recoil, flat damage.' },
-  { name:'Continuous Beam Emitters', mode:'beam', beams:1, hw:6,  dps:0.42, color:'#6ea8ff', desc:'Solid beam that burns whatever it touches.' },
-  { name:'Heavy UV Scatter-Lasers',  mode:'beam', beams:3, hw:5,  dps:0.42, color:'#b98dff', desc:'Triple spread — broad lane coverage.' },
-  { name:'Focused Plasma Cutters',   mode:'beam', beams:3, hw:6,  dps:0.78, color:'#66ffd8', desc:'Superheated beams melt heavy shielding.' },
-  { name:'Prism Splitter Beams',     mode:'beam', beams:3, hw:6,  dps:0.78, split:true, color:'#8dff9f', desc:'Beams split to fry nearby escorts.' },
-  { name:'Positron Lances',          mode:'beam', beams:2, hw:12, dps:1.00, color:'#eaff66', desc:'Thick beams pierce the whole screen.' },
-  { name:'Singularity Beam Cannon',  mode:'beam', beams:2, hw:12, dps:1.15, pull:true, color:'#c58dff', desc:'Dark-energy rays drag enemies into the burn.' }
+  { name:'Pulse Lasers',                  mode:'bolt', dmg:2, rate:5,               color:'#ff5a6a', desc:'Fast red bolts, flat damage.' },
+  { name:'Continuous Beam Emitters',      mode:'beam', beams:1, hw:6,  dps:0.42,     color:'#6ea8ff', desc:'Solid beam that burns on contact.' },
+  { name:'Dual Energy Blasters',          mode:'bolt', dmg:7, rate:5,               color:'#8fbfff', desc:'Twin heavy plasma blasts, high hit.' },
+  { name:'Heavy UV Scatter-Lasers',       mode:'beam', beams:3, hw:5,  dps:0.42,     color:'#b98dff', desc:'Triple spread — broad lane coverage.' },
+  { name:'Focused Plasma Cutters',        mode:'beam', beams:3, hw:6,  dps:0.80,     color:'#66ffd8', desc:'Melt enemy armor and shields fast.' },
+  { name:'Prism Splitter Beams',          mode:'beam', beams:3, hw:6,  dps:0.80, split:true, color:'#8dff9f', desc:'Split to multi-target on first hit.' },
+  { name:'Arc Lightning Generators',      mode:'beam', beams:3, hw:7,  dps:0.95, split:true, color:'#bfe0ff', desc:'Chain electricity between grouped foes.' },
+  { name:'Tachyon Pulse Beams',           mode:'beam', beams:4, hw:5,  dps:0.95,     color:'#d6fff2', desc:'Ultra-fast bolts across the screen.' },
+  { name:'Gamma-Ray Lances',              mode:'beam', beams:2, hw:10, dps:1.30,     color:'#c7ff8f', desc:'Concentrated beams, heavy sustained burn.' },
+  { name:'Positron Heavy Cannons',        mode:'beam', beams:2, hw:12, dps:1.15,     color:'#eaff66', desc:'Thick beams pierce bottom to top.' },
+  { name:'Proton Disruption Beams',       mode:'beam', beams:3, hw:10, dps:1.25,     color:'#9fd0ff', desc:'Unstable rays strip bullets from the air.' },
+  { name:'Chrono-Thermal Rays',           mode:'beam', beams:3, hw:11, dps:1.40,     color:'#8fffe0', desc:'Freeze movement while cooking hulls.' },
+  { name:'Singularity Beam Cannon',       mode:'beam', beams:2, hw:12, dps:1.35, pull:true, color:'#c58dff', desc:'Pull targets into the beam as they burn.' },
+  { name:'Celestial Solar Beams',         mode:'beam', beams:3, hw:16, dps:1.60,     color:'#ffd76a', desc:'Golden rays engulf whole lanes in fire.' },
+  { name:'Dimensional Disintegration Beams',mode:'beam', beams:4, hw:16, dps:1.90, pull:true, split:true, color:'#ffffff', desc:'Erase light enemies and bullets outright.' }
 ];
 function wtier(w, lv){ const T = w==='kinetic'?KTIERS : w==='missiles'?MTIERS : LTIERS; return T[Math.max(1, Math.min(C.weaponMax, lv))]; }
 
@@ -397,6 +422,8 @@ let state = 'menu';    // menu | playing | clear | over
 let squad, bullets, enemies, gates, particles, floaters, stars, bossShots, missiles, asteroids, planet, theme, introT;
 let level, system, sector, distance, levelLen, score, best = 0, boss, shake, spawnTimer, gateTimer, fireTimer, missileTimer, laserTimer, missileNuke, tSpeed, flash;
 let weapons = { kinetic:1, missiles:0, lasers:0 };
+let weaponProg = { kinetic:0, missiles:0, lasers:0 };   // picks banked toward the next tier
+function tierCost(t){ return Math.max(1, t); }          // picks to advance FROM tier t (cheap early, costly late)
 let shipArmor = 0, shield = 0, shieldMax = 0, shipColor = null, shipFireMul = 1, baseDmgMul = 1, baseXpMul = 1;
 let shipId = 'vanguard', shipHull = [44,62,80], shipAccent = [74,144,226], shipGlow = [80,227,194];
 try { best = parseInt(localStorage.getItem('sv_best')||'0',10)||0; } catch(e){}
@@ -419,7 +446,7 @@ function reset(full){
   shipId = ship.id; shipHull = ship.hull||ship.color; shipAccent = ship.accent||ship.color; shipGlow = ship.glow||[255,255,255];
   const pmul = prestigeMul();
   baseDmgMul = fx.dmgMul * pmul; baseXpMul = fx.xpMul * pmul;   // prestige boosts XP & damage
-  if(full){ level = 1; score = 0; weapons = { kinetic: ship.kinetic || 1, missiles: ship.missiles || 0, lasers: ship.lasers || 0 }; }
+  if(full){ level = 1; score = 0; weapons = { kinetic: ship.kinetic || 1, missiles: ship.missiles || 0, lasers: ship.lasers || 0 }; weaponProg = { kinetic:0, missiles:0, lasers:0 }; }
   system = Math.floor((level-1)/SECTORS_PER_SYSTEM) + 1;
   sector = ((level-1) % SECTORS_PER_SYSTEM) + 1;
   theme = raceCache[system] || (raceCache[system] = makeRace(system));   // this system's alien race
@@ -1345,10 +1372,11 @@ function showUpgradeCards(){
   for(const w of ['kinetic','missiles','lasers']){
     const lv=weapons[w], meta=WMETA[w], maxed = lv>=C.weaponMax;
     const tier = wtier(w, maxed ? lv : lv+1);
+    const cost = tierCost(lv), prog = weaponProg[w]||0;
     const card=document.createElement('div');
     card.className='ucard'+(maxed?' maxed':''); card.style.setProperty('--wc', meta.color);
     let pips=''; for(let i=0;i<C.weaponMax;i++) pips+=`<span class="pip${i<lv?' on':''}"></span>`;
-    const label = maxed ? 'MAX TIER' : (lv===0 ? 'UNLOCK' : 'TIER '+lv+' → '+(lv+1));
+    const label = maxed ? 'MAX TIER' : ((lv===0 ? 'UNLOCK' : 'TIER '+lv+' → '+(lv+1)) + `  ·  ${prog}/${cost}`);
     card.innerHTML =
       `<div class="uicon">${meta.icon}</div>`+
       `<div class="uname" style="color:${meta.color}">${meta.name}</div>`+
@@ -1361,8 +1389,11 @@ function showUpgradeCards(){
   }
 }
 function chooseUpgrade(w){
-  weapons[w] = Math.min(C.weaponMax, weapons[w]+1);
-  beep(660,0.12,'triangle',0.06);
+  if(weapons[w] < C.weaponMax){
+    weaponProg[w] = (weaponProg[w]||0) + 1;
+    if(weaponProg[w] >= tierCost(weapons[w])){ weaponProg[w] = 0; weapons[w]++; beep(760,0.14,'triangle',0.06); }  // tier up!
+    else beep(520,0.08,'triangle',0.05);   // banked progress
+  }
   level++; reset(false); state='playing'; showScreen(null);
 }
 // ---------- Hangar / store ----------
@@ -1398,11 +1429,11 @@ function storeClick(s){
 // ---------- Galaxy map ----------
 // distribute earned upgrade picks across the 3 weapon branches (used when deploying deep)
 function scaleWeapons(picks){
-  const w = { kinetic:1, missiles:0, lasers:0 }, order = ['kinetic','missiles','lasers'];
+  const w = { kinetic:1, missiles:0, lasers:0 }, pr = { kinetic:0, missiles:0, lasers:0 }, order = ['kinetic','missiles','lasers'];
   let i=0, guard=0;
-  while(picks>0 && guard<400){
+  while(picks>0 && guard<3000){
     const k = order[i%3];
-    if(w[k] < C.weaponMax){ w[k]++; picks--; }
+    if(w[k] < C.weaponMax){ pr[k]++; picks--; if(pr[k] >= tierCost(w[k])){ pr[k]=0; w[k]++; } }
     i++; guard++;
     if(w.kinetic>=C.weaponMax && w.missiles>=C.weaponMax && w.lasers>=C.weaponMax) break;
   }
