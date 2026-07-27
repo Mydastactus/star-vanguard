@@ -507,7 +507,9 @@ function spawnBlocker(){
   enemies.push({ x, y:-40, hp, max:hp, r:rad, t:Math.random()*6, kind, shape:R.shape, tint, spdMul, home, vx:0 });
 }
 function spawnBoss(){
-  const hp = Math.round(900 + system*550 + score*0.02);   // one milestone mothership per system
+  // HP scales with the legion you bring (damage scales with count too) so it's always a real fight,
+  // never a one-shot, no matter how huge the legion has grown.
+  const hp = Math.round(800 + system*500 + squad.count*45);
   boss = { x:W/2, y:-160, baseY:130, hp, max:hp, t:0, entered:false, w:240, h:126, shotT:C.bossShotGap, spin:0 };
   beep(90,0.5,'sawtooth',0.09);
 }
